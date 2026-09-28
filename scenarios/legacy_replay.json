@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "scenario_id": "legacy_controlled_replay",
+  "mode": "legacy_replay",
+  "data_directory": "../legacy/example_controlled",
+  "legacy_zenith_time_s": 600.0,
+  "observer": {
+    "latitude_deg": 25.3026,
+    "longitude_deg": 51.5132,
+    "earth_rotation_rad_s": 0.00007292115,
+    "greenwich_angle_at_zenith_deg": 0.0
+  },
+  "visibility": {
+    "min_elevation_deg": 15.0,
+    "max_side_error": 0.1,
+    "max_diagonal_error": 0.1,
+    "max_angle_error_deg": 10.0
+  },
+  "safety": {
+    "illustrative_min_separation_km": 1.0
+  },
+  "note": "Выбор зенита t=600 с задаёт геометрию повторного показа. Сохранённые CSV не содержат исходной наблюдаемой проекции."
+}

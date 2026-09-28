@@ -1,0 +1,7 @@
+__pycache__/
+*.py[cod]
+.venv/
+.venv-1/
+*.aux
+*.log
+*.synctex.gz

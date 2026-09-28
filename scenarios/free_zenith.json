@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "scenario_id": "free_zenith_4sat",
+  "mode": "free_hcw_two_body",
+  "angle_convention": "gnomonic_axis_angle_from_reference",
+  "angular_side_deg": 1.8183029644518331,
+  "angular_side_range_deg": [1.0, 20.0],
+  "orbit": {
+    "earth_radius_km": 6371.0,
+    "mu_km3_s2": 398600.4,
+    "altitude_km": 630.0,
+    "inclination_deg": 97.8
+  },
+  "observer": {
+    "latitude_deg": 25.3026,
+    "longitude_deg": 51.5132,
+    "earth_rotation_rad_s": 0.00007292115,
+    "greenwich_angle_at_zenith_deg": 0.0
+  },
+  "time": {
+    "zenith_s": 0.0,
+    "start_s": -450.0,
+    "end_s": 450.0,
+    "step_s": 5.0
+  },
+  "initial_family": {
+    "choice": "radial_zero_relative_velocity_zero",
+    "radial_offsets_km": [0.0, 0.0, 0.0],
+    "relative_velocities_m_s": [
+      [0.0, 0.0, 0.0],
+      [0.0, 0.0, 0.0],
+      [0.0, 0.0, 0.0]
+    ]
+  },
+  "fit": {
+    "half_window_s": 150.0,
+    "sample_count": 21,
+    "regularization": 1.0
+  },
+  "visibility": {
+    "min_elevation_deg": 15.0,
+    "max_side_error": 0.1,
+    "max_diagonal_error": 0.1,
+    "max_angle_error_deg": 10.0
+  },
+  "safety": {
+    "illustrative_min_separation_km": 1.0
+  }
+}
