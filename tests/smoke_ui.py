@@ -124,5 +124,65 @@ app.exec()
 poll.stop()
 assert window.result.metadata["audit_status"] == "complete"
 assert window.result.metadata["full_orbit_audit"]["pair_count"] == 4950
-print("OK: HCW, J₂ и CSV; обе 2D-картины, 3D, элементы, индикаторы, ползунок, анимация")
+window.mode.setCurrentIndex(3)
+window.grid_size.setValue(2)
+assert window.result.metadata["audit_status"] == "study_saved"
+assert window.result.metadata["study_status"] == "выполнены частично"
+assert "30 сут." in window.study_status_label.text()
+assert window.elements_table.rowCount() == 4
+for n in (2,4,7,9,10):
+    window.grid_size.setValue(n)
+    assert window.result.r_eci_km.shape == (181,n*n,3)
+    assert window.elements_table.rowCount() == n*n
+    assert len(window.proj.axes.collections) >= 1
+    assert len(window.yoz.axes.collections) >= 1
+    assert window.result.metadata["audit_status"] == "study_saved"
+    if n in (9,10):
+        assert window.result.metadata["study_status"] == "нет проверенного решения"
+        assert not window.result.metadata["quality"]["has_positive_duration_interval"]
+        assert "Запас нарушен" in window.safety_badge.text()
+window.grid_size.setValue(3)
+assert "выполнены частично" in window.study_status_label.text()
+window.time_slider.setValue(0)
+assert "угол места" in window.observable_badge.text()
+window.time_slider.setValue(90)
+assert "внешняя сторона" in window.metrics.text()
+assert window.timeline.eligible.shape == (181,)
+window.toggle_play()
+QTimer.singleShot(330,app.quit)
+app.exec()
+assert window.time_slider.value() > 90
+window.toggle_play()
+window.close()
+window = DemoWindow()
+window.show()
+window.mode.setCurrentIndex(3)
+with TemporaryDirectory() as temporary:
+    window.grid_size.setValue(5)
+    window.long_horizon.setValue(.2)
+    window.start_long_analysis(temporary)
+    assert window.analysis_future is not None
+    poll = QTimer()
+    poll.timeout.connect(lambda: app.quit() if window.analysis_future is None else None)
+    poll.start(100)
+    QTimer.singleShot(30000,app.quit)
+    app.exec()
+    poll.stop()
+    assert window.analysis_future is None, "отдельный расчёт превысил 30 с"
+    assert "файлы:" in window.long_status.text(),window.long_status.text()
+    folders = list(Path(temporary).glob("N5_*"))
+    assert len(folders) == 1
+    assert {"case.json","passes.csv","pair_minima.csv","passes.png",
+            "shape_quality.png","pair_minima.png"} <= {p.name for p in folders[0].iterdir()}
+    data = __import__("json").loads((folders[0]/"case.json").read_text(encoding="utf-8"))
+    assert len(data["elements_at_epoch"]) == 25
+    assert data["verification"]["pair_count"] == 300
+from unittest.mock import patch
+with patch("square_demo.ui.load_study_case",side_effect=ValueError("несовместимая модель")), \
+     patch("square_demo.ui.QMessageBox.warning"):
+    window.calculate_current()
+assert window.result is None
+assert window.timeline.times is None
+assert "несовместимая модель" in window.study_status_label.text()
+print("OK: HCW, J₂, CSV и orbit_study N=2..10; геометрия, индикаторы, анимация, отдельный анализ")
 window.close()

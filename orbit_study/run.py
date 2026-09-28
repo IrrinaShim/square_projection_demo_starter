@@ -15,6 +15,7 @@ from square_demo.providers import load_scenario
 from square_demo.orbit_j2 import integrate
 from .model import make_candidate, reconstruct
 from .evaluate import detailed, survey, geometry
+from .provenance import MODEL_VERSION, FRAME, physics_fingerprint, solutions_fingerprint
 
 ROOT=Path(__file__).resolve().parent.parent
 HERE=Path(__file__).resolve().parent
@@ -137,7 +138,8 @@ def run(config,quick=False,full=False,sizes=None,resume=False):
     output.mkdir(exist_ok=True)
     all_survey={}
     solutions={"schema_version":1,"epoch_utc":base["epoch_utc"],
-        "frame":"conditional ECI: Z Earth spin axis; Greenwich angle=0 at epoch",
+        "model_version":MODEL_VERSION,"physics_fingerprint_sha256":physics_fingerprint(),
+        "frame":FRAME,
         "elements":"osculating classical Kepler a,e,i,RAAN,argument of perigee,true anomaly; degrees/km",
         "dynamics":"independent RK4 nonlinear central gravity + J2; no thrust",
         "orbit_constants":base["orbit"],"observer":base["observer"],
@@ -240,6 +242,7 @@ def run(config,quick=False,full=False,sizes=None,resume=False):
                     config["collision_radius_sum_km"]+config["additional_safety_margin_km"],
                 "verified_30_days":record["verified_30_days"],
                 "unmet_constraints":"; ".join(violations)})
+        solutions["solutions_fingerprint_sha256"]=solutions_fingerprint(solutions)
         (output/"solutions.json").write_text(json.dumps(solutions,ensure_ascii=False,
             indent=2,allow_nan=False)+"\n",encoding="utf-8")
         (output/"survey.json").write_text(json.dumps(all_survey,ensure_ascii=False,

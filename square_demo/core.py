@@ -381,5 +381,16 @@ def assemble_absolute(t, r, basis, robs, accel, target, orbit, metadata,
                               errors, minpair, target, orbit_line, sides,diagonals,angles,target_yoz,metadata)
     result.validate()
     result.metadata["observability"] = observability(result)
+    observation = result.metadata["observability"]
+    observation["outer_side_deg"] = np.rad2deg(np.arctan(
+        observation["mean_side_gnomonic"]))
+    visible = (np.all(result.image_valid,axis=1)
+               & (observation["min_elevation_deg"] >=
+                  float(metadata["visibility"]["min_elevation_deg"])))
+    changes = np.diff(np.r_[False,visible,False].astype(int))
+    starts = np.flatnonzero(changes==1)
+    ends = np.flatnonzero(changes==-1)-1
+    observation["visibility_intervals_s"] = [
+        (float(t[a]),float(t[b])) for a,b in zip(starts,ends)]
     result.metadata["quality"] = visibility_summary(result)
     return result

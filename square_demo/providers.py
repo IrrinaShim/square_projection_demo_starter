@@ -269,19 +269,30 @@ def independent_j2(scenario, include_audit=True):
                 "max_cell_diagonal_error","max_cell_angle_error_deg"):
         _positive(scenario["grid_tolerances"][key],key)
     entries = scenario["elements_at_epoch"]
-    if len(entries) != 4:
-        raise ValueError("Нужны элементы четырёх угловых КА в порядке 0–1–2–3")
+    full_elements = scenario.get("initialization") == "full_elements"
+    if len(entries) != (size*size if full_elements else 4):
+        raise ValueError("Неверное число оскулирующих элементов КА на общей эпохе")
     for k,entry in enumerate(entries):
         if float(entry["a_km"])*(1-float(entry["e"])) <= re:
             raise ValueError(f"Перигей КА {k} внутри сферической Земли")
-    corner_initial = np.stack([elements_to_state(entry,mu) for entry in entries])
-    basis_at_epoch = orbital_basis(corner_initial[0:1])
-    observer_at_epoch = observer_eci(np.array([0.]),0,re,scenario["observer"])
-    _,sight,exi,eeta = image_frame(corner_initial[0:1,0],observer_at_epoch,basis_at_epoch)
-    initial,target,all_elements = initial_grid_from_corners(
-        corner_initial,size,observer_at_epoch[0],sight[0],exi[0],eeta[0],theta,mu)
-    if size == 2:
+    if full_elements:
+        initial = np.stack([elements_to_state(entry,mu) for entry in entries])
+        ids = grid_indices(size)
+        target = np.empty((size*size,2))
+        alpha = np.tan(np.deg2rad(theta))
+        for row in range(size):
+            for col in range(size):
+                target[ids[row,col]] = (alpha*col/(size-1),alpha*row/(size-1))
         all_elements = list(entries)
+    else:
+        corner_initial = np.stack([elements_to_state(entry,mu) for entry in entries])
+        basis_at_epoch = orbital_basis(corner_initial[0:1])
+        observer_at_epoch = observer_eci(np.array([0.]),0,re,scenario["observer"])
+        _,sight,exi,eeta = image_frame(corner_initial[0:1,0],observer_at_epoch,basis_at_epoch)
+        initial,target,all_elements = initial_grid_from_corners(
+            corner_initial,size,observer_at_epoch[0],sight[0],exi[0],eeta[0],theta,mu)
+        if size == 2:
+            all_elements = list(entries)
     for k,entry in enumerate(all_elements):
         if float(entry["a_km"])*(1-float(entry["e"])) <= re:
             raise ValueError(f"Перигей КА {k} внутри сферической Земли")
@@ -318,13 +329,17 @@ def independent_j2(scenario, include_audit=True):
     accel = np.zeros((len(t)-1,size*size,3))  # гравитационное J₂ не является тягой
     warning = (f"{size*size} независимых абсолютных орбит с J₂ без тяги. "
                "Порог расстояния иллюстративный; долгосрочная безопасность не установлена.")
-    metadata = _metadata(scenario,"Нелинейная абсолютная модель J₂",orbit,warning,0)
+    source = ("Сохранённые оскулирующие элементы orbit_study, J₂ без тяги"
+              if full_elements else "Нелинейная абсолютная модель J₂")
+    metadata = _metadata(scenario,source,orbit,warning,0)
     metadata.update({
         "angular_side_deg":theta,"variant":"independent_j2",
         "epoch_utc":epoch,"orbital_elements":all_elements,
         "grid_size":size,"grid_indices":grid_indices(size).tolist(),
         "grid_tolerances":scenario["grid_tolerances"],
-        "initial_epoch_s":0.0,"initial_choice":"собственные оскулирующие элементы на общей UTC-эпохе",
+        "initial_epoch_s":0.0,"initial_choice":(
+            "все собственные оскулирующие элементы загружены из исследования"
+            if full_elements else "собственные оскулирующие элементы на общей UTC-эпохе"),
         "safety_horizon":"один номинальный виток опорного КА от общей эпохи",
         "audit_status":"pending",
     })

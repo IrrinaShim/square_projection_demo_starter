@@ -19,6 +19,8 @@ from PySide6.QtWidgets import (QApplication, QComboBox, QDoubleSpinBox, QFormLay
 
 from .providers import (SCENARIOS, audit_independent_grid, calculate,
                         calculate_free_variants, load_scenario)
+from .study import load_study_case, study_status
+from orbit_study.user_run import run_selected_case
 
 
 COLORS = ["#223b85", "#d63d35", "#15925b", "#b87607", "#9245a7", "#00a1ac"]
@@ -79,11 +81,18 @@ class DemoWindow(QMainWindow):
         self.result = None
         self.scenario = None
         self.variants = {}
+        self.study_record = None
+        self.study_data = None
         self.audit_executor = ThreadPoolExecutor(max_workers=1)
         self.audit_future = None
         self.audit_timer = QTimer(self)
         self.audit_timer.setInterval(120)
         self.audit_timer.timeout.connect(self._poll_audit)
+        self.analysis_executor = ThreadPoolExecutor(max_workers=1)
+        self.analysis_future = None
+        self.analysis_timer = QTimer(self)
+        self.analysis_timer.setInterval(200)
+        self.analysis_timer.timeout.connect(self._poll_long_analysis)
         self.timer = QTimer(self)
         self.timer.setInterval(110)
         self.timer.timeout.connect(self.advance)
@@ -96,6 +105,7 @@ class DemoWindow(QMainWindow):
         self.mode.addItem("Свободный пролёт HCW", "free_hcw_two_body")
         self.mode.addItem("Историческая управляемая траектория", "legacy_replay")
         self.mode.addItem("Независимые орбиты J₂", "independent_j2")
+        self.mode.addItem("Орбиты из исследования J₂", "study_j2")
         self.mode.currentIndexChanged.connect(self.reload_scenario)
         top.addWidget(QLabel("Режим:"))
         top.addWidget(self.mode, 2)
@@ -138,6 +148,16 @@ class DemoWindow(QMainWindow):
         self.grid_size.setRange(2,10)
         grid_column.addRow("КА на стороне N",self.grid_size)
         settings_layout.addLayout(grid_column)
+        self.resolution_column = QFormLayout()
+        self.resolution = QComboBox()
+        self.resolution.addItem("1°",1.0)
+        self.resolution.addItem("2°",2.0)
+        self.resolution.setCurrentIndex(1)
+        self.resolution_label = QLabel("Истинный шаг ≥")
+        self.resolution_column.addRow(self.resolution_label,self.resolution)
+        settings_layout.addLayout(self.resolution_column)
+        self.grid_size.valueChanged.connect(self._study_selection_changed)
+        self.resolution.currentIndexChanged.connect(self._study_selection_changed)
         self.recalculate = QPushButton("Пересчитать")
         self.recalculate.clicked.connect(self.calculate_current)
         settings_layout.addWidget(self.recalculate)
@@ -179,6 +199,25 @@ class DemoWindow(QMainWindow):
         self.export_elements_button.clicked.connect(self._choose_elements_path)
         self.export_elements_button.setVisible(False)
         parameter_layout.addWidget(self.export_elements_button)
+        self.study_status_label = QLabel()
+        self.study_status_label.setWordWrap(True)
+        parameter_layout.addWidget(self.study_status_label)
+        self.long_controls = QWidget()
+        long_row = QHBoxLayout(self.long_controls)
+        long_row.setContentsMargins(0,0,0,0)
+        long_row.addWidget(QLabel("Отдельный анализ, сутки:"))
+        self.long_horizon = QDoubleSpinBox()
+        self.long_horizon.setRange(.05,30.)
+        self.long_horizon.setDecimals(2)
+        self.long_horizon.setValue(1.)
+        long_row.addWidget(self.long_horizon)
+        self.long_button = QPushButton("Рассчитать и сохранить графики")
+        self.long_button.clicked.connect(self._choose_long_analysis_dir)
+        long_row.addWidget(self.long_button)
+        self.long_status = QLabel("Долгосрочный анализ запускается только этой кнопкой.")
+        self.long_status.setWordWrap(True)
+        long_row.addWidget(self.long_status,1)
+        parameter_layout.addWidget(self.long_controls)
         root.addWidget(parameter_group)
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
@@ -253,7 +292,13 @@ class DemoWindow(QMainWindow):
         self.timer.stop()
         self.play_button.setText("Пуск")
         try:
-            self.scenario = load_scenario(SCENARIOS[self.mode.currentData()])
+            study = self.mode.currentData() == "study_j2"
+            if study:
+                self.scenario,self.study_record,self.study_data = load_study_case(
+                    self.grid_size.value(),self.resolution.currentData())
+            else:
+                self.scenario = load_scenario(SCENARIOS[self.mode.currentData()])
+                self.study_record = self.study_data = None
             s = self.scenario
             self.fields["angular_side_deg"].setValue(float(s.get("angular_side_deg", 1.8183029644518331)))
             orbit = s.get("orbit")
@@ -271,8 +316,14 @@ class DemoWindow(QMainWindow):
                 self.fields[key].setValue(float(s["observer"][key]))
             free = s["mode"] == "free_hcw_two_body"
             j2 = s["mode"] == "independent_j2"
+            self.grid_size.blockSignals(True)
             self.grid_size.setValue(int(s.get("grid_size",2)))
+            self.grid_size.blockSignals(False)
             self.grid_size.setEnabled(j2)
+            self.resolution.setVisible(study)
+            self.resolution_label.setVisible(study)
+            self.study_status_label.setVisible(study)
+            self.long_controls.setVisible(study)
             self.variant.setEnabled(free)
             self.comparison.setVisible(free)
             self.verdict.setVisible(free)
@@ -282,37 +333,61 @@ class DemoWindow(QMainWindow):
             self.fields["angular_side_deg"].setEnabled(free)
             self.fields["altitude_km"].setEnabled(free)
             self.fields["inclination_deg"].setEnabled(free)
+            for key in ("latitude_deg","longitude_deg"):
+                self.fields[key].setEnabled(not study)
             self.calculate_current()
         except Exception as exc:
+            self._invalidate_result(exc)
             self._error(exc)
 
     def calculate_current(self):
         if self.scenario is None:
             return
         try:
-            s = deepcopy(self.scenario)
+            study = self.mode.currentData() == "study_j2"
+            if study:
+                s,record,data = load_study_case(self.grid_size.value(),
+                                                  self.resolution.currentData())
+            else:
+                s = deepcopy(self.scenario)
             if s["mode"] == "free_hcw_two_body":
                 s["angular_side_deg"] = self.fields["angular_side_deg"].value()
                 s["orbit"]["altitude_km"] = self.fields["altitude_km"].value()
                 s["orbit"]["inclination_deg"] = self.fields["inclination_deg"].value()
             elif s["mode"] == "independent_j2":
                 s["grid_size"] = self.grid_size.value()
-            for key in ("latitude_deg", "longitude_deg"):
-                s["observer"][key] = self.fields[key].value()
+            if not study:
+                for key in ("latitude_deg", "longitude_deg"):
+                    s["observer"][key] = self.fields[key].value()
             if s["mode"] == "free_hcw_two_body":
                 variants = calculate_free_variants(s)
                 result = variants[self.variant.currentData()]
             else:
                 variants = {}
-                result = calculate(s,include_audit=(s["mode"] != "independent_j2"
-                    or s["grid_size"] == 2))
+                result = calculate(s,include_audit=(not study and
+                    (s["mode"] != "independent_j2" or s["grid_size"] == 2)))
+            if study:
+                key=str(int(self.resolution.currentData()))
+                saved=record["verification"]["repeat"][key]["best_pass"]
+                actual=result.metadata["quality"]["longest_contiguous_duration_s"]
+                if saved is not None and abs(actual-saved["duration_s"])>result.t_s[1]-result.t_s[0]+1e-6:
+                    raise ValueError("Сохранённый и повторный расчёт пролёта расходятся по длительности")
+                result.metadata["audit_status"]="study_saved"
+                result.metadata["study_record"]=record
+                result.metadata["study_status"]=study_status(record,self.resolution.currentData(),
+                                                              data["search_config"])
         except Exception as exc:
+            if self.mode.currentData() == "study_j2":
+                self.study_record = self.study_data = None
+                self._invalidate_result(exc)
             self._error(exc)
             return
         self.timer.stop()
         self.play_button.setText("Пуск")
         self.result = result
         self.variants = variants
+        if study:
+            self.scenario,self.study_record,self.study_data=s,record,data
         if self.audit_future is not None and not self.audit_future.done():
             self.audit_future.cancel()
         if result.metadata.get("audit_status") == "pending":
@@ -331,6 +406,10 @@ class DemoWindow(QMainWindow):
         self._update_parameters()
         self._draw_comparison()
         self.update_frame()
+
+    def _study_selection_changed(self, *_):
+        if self.mode.currentData() == "study_j2" and self.scenario is not None:
+            self.calculate_current()
 
     def _poll_audit(self):
         if self.audit_future is None or not self.audit_future.done():
@@ -362,7 +441,7 @@ class DemoWindow(QMainWindow):
                                     else "Начальные дальности, положения и скорости ▸")
 
     def _toggle_elements_table(self, expanded):
-        self.elements_table.setVisible(expanded and self.mode.currentData() == "independent_j2")
+        self.elements_table.setVisible(expanded and self.mode.currentData() in ("independent_j2","study_j2"))
         self.elements_button.setText("Оскулирующие элементы всех КА на общей эпохе ▾" if expanded
                                      else "Оскулирующие элементы всех КА на общей эпохе ▸")
 
@@ -398,6 +477,24 @@ class DemoWindow(QMainWindow):
                           f"{entry['arg_perigee_deg']:.6f}",f"{entry['true_anomaly_deg']:.6f}"]
                 for col,value in enumerate(values):
                     self.elements_table.setItem(row,col,QTableWidgetItem(value))
+        if self.study_record is not None and self.mode.currentData() == "study_j2":
+            audit=self.study_record["verification"]
+            key=str(int(self.resolution.currentData()))
+            passes=audit["repeat"][key]["qualifying_passes"]
+            status=meta["study_status"]
+            reasons="; ".join(self.study_record["unmet_constraints"])
+            if not reasons:
+                reasons="зафиксированных нарушений нет"
+            self.study_status_label.setText(
+                f"Исследование N={meta['grid_size']}: {status}. Порог соседей ≥{key}°. "
+                f"Проверено {audit['horizon_days']:g} сут.; подходящих пролётов {passes}; "
+                f"min всех пар {audit['closest_pair']['distance_km']:.3f} км; "
+                f"min высота {audit['minimum_altitude_km']:.1f} км. "
+                f"Ограничения исследования: {reasons}.")
+            self.study_status_label.setStyleSheet(
+                "background:#d9f4e3;color:#145b32;padding:5px;" if status=="требования выполнены"
+                else "background:#fff0d9;color:#805015;padding:5px;" if status=="выполнены частично"
+                else "background:#ffe3df;color:#8b241d;padding:5px;")
 
     def _choose_elements_path(self):
         if self.result is None or self.result.metadata.get("mode") != "independent_j2":
@@ -417,7 +514,45 @@ class DemoWindow(QMainWindow):
                    "index_map":meta["grid_indices"],"model":"independent_j2",
                    "elements_at_epoch":meta["orbital_elements"],
                    "units":{"a":"km","angles":"deg","e":"dimensionless"}}
+        if "study_provenance" in self.scenario:
+            payload["study_provenance"]=self.scenario["study_provenance"]
+            payload["reference_orbit"]=self.scenario["orbit"]
         Path(path).write_text(json.dumps(payload,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
+
+    def _choose_long_analysis_dir(self):
+        folder=QFileDialog.getExistingDirectory(self,"Папка отдельных результатов",
+                                                str(Path("orbit_study/user_runs").resolve()))
+        if folder:
+            self.start_long_analysis(folder)
+
+    def start_long_analysis(self, output_parent=None):
+        if self.mode.currentData()!="study_j2" or self.analysis_future is not None:
+            return
+        size=self.grid_size.value()
+        angle=float(self.resolution.currentData())
+        days=self.long_horizon.value()
+        self.long_button.setEnabled(False)
+        self.long_status.setText(f"Расчёт N={size}, {days:g} сут. выполняется; результаты появятся в отдельной папке.")
+        self.analysis_future=self.analysis_executor.submit(
+            run_selected_case,size,angle,days,output_parent)
+        self.analysis_timer.start()
+
+    def _poll_long_analysis(self):
+        if self.analysis_future is None or not self.analysis_future.done():
+            return
+        future=self.analysis_future
+        self.analysis_future=None
+        self.analysis_timer.stop()
+        self.long_button.setEnabled(True)
+        try:
+            outcome=future.result()
+            closest=outcome["closest_pair"]
+            self.long_status.setText(
+                f"{outcome['status']}; подходящих пролётов {outcome['qualifying_passes']}; "
+                f"min {closest['distance_km']:.3f} км (пара {closest['pair']}); "
+                f"файлы: {outcome['folder']}")
+        except Exception as exc:
+            self.long_status.setText(f"Отдельный анализ не завершён: {exc}")
 
     def _draw_comparison(self):
         if not self.variants:
@@ -441,6 +576,21 @@ class DemoWindow(QMainWindow):
 
     def _error(self, exc):
         QMessageBox.warning(self, "Ошибка входных данных", str(exc))
+
+    def _invalidate_result(self, exc):
+        self.timer.stop()
+        self.result = None
+        self.variants = {}
+        self.timeline.set_result(None,None)
+        self.study_status_label.setText(f"Данные не загружены: {exc}")
+        self.observable_badge.setText("Результат отсутствует")
+        self.safety_badge.setText("Проверка недоступна")
+        self.metrics.clear()
+        self.geometry.clear()
+        self.info.clear()
+        for canvas in (self.proj,self.yoz,self.space):
+            canvas.axes.clear()
+            canvas.draw_idle()
 
     def toggle_play(self):
         if self.timer.isActive():
@@ -492,9 +642,17 @@ class DemoWindow(QMainWindow):
                 "На пролёте связного допустимого интервала положительной длительности нет.")
         else:
             interval_text = f"Связный допустимый интервал вокруг зенита: {duration:.0f} с."
+        visible_intervals=observation["visibility_intervals_s"]
+        if visible_intervals:
+            longest_visible=max(visible_intervals,key=lambda ab:ab[1]-ab[0])
+            interval_text+=(f" Видимость всех КА: {longest_visible[0]:g}…"
+                            f"{longest_visible[1]:g} с; {len(visible_intervals)} интервал(ов).")
+        else:
+            interval_text+=" Все КА одновременно не видны."
         if good:
+            qualifier=" локально на показанном пролёте" if self.mode.currentData()=="study_j2" else ""
             self.observable_badge.setText(
-                f"● {subject} {'приемлема' if result.metadata.get('grid_size',2)>2 else 'приемлем'}. "
+                f"● {subject} {'приемлема' if result.metadata.get('grid_size',2)>2 else 'приемлем'}{qualifier}. "
                 +interval_text)
             self.observable_badge.setStyleSheet("background:#d9f4e3;color:#145b32;padding:5px;")
         else:
@@ -506,7 +664,18 @@ class DemoWindow(QMainWindow):
         safe_now = bool(observation["safety_illustrative_ok"][k])
         safe_window = bool(result.metadata["separation_meets_illustrative_threshold"])
         trial_full_orbit_warning = result.metadata.get("variant") == "trial"
-        if result.metadata.get("audit_status") == "pending":
+        if result.metadata.get("audit_status") == "study_saved":
+            audit=result.metadata["study_record"]["verification"]
+            closest=audit["closest_pair"]
+            safe_window=closest["distance_km"]>=threshold
+            self.safety_badge.setText(
+                f"{'● За проверенный горизонт ниже запаса не найдено' if safe_window else '● Запас нарушен на проверенном горизонте'}: "
+                f"{audit['horizon_days']:g} сут., все {audit['pair_count']} пар; "
+                f"min {closest['distance_km']:.3f} км, пара {closest['pair']}, "
+                f"t={closest['t_s']:.1f} с, {closest['latitude_deg']:.1f}° / "
+                f"{closest['longitude_deg']:.1f}°; сейчас {result.min_pair_distance_km[k]:.3f} км. "
+                f"Порог радиусов с запасом {threshold:g} км.")
+        elif result.metadata.get("audit_status") == "pending":
             safe_window = False
             self.safety_badge.setText(
                 f"● Проверка всех {len(result.r_eci_km[0])*(len(result.r_eci_km[0])-1)//2} пар "
@@ -550,6 +719,7 @@ class DemoWindow(QMainWindow):
         size_text = "—" if not np.isfinite(size_dev) else f"{size_dev:+.2f}%"
         self.metrics.setText(
             f"εb / εd = {err}; εγ = {ang}; min угол места = {min_elev:.2f}°; "
+            f"внешняя сторона ≈ {observation['outer_side_deg'][k]:.3f}°; "
             f"отклонение среднего размера от tan(θ) = {size_text} "
             f"(отдельный показатель, не входит в допуски формы).")
         if "grid_metrics" in result.metadata:
@@ -735,6 +905,8 @@ class DemoWindow(QMainWindow):
     def closeEvent(self,event):
         self.audit_timer.stop()
         self.audit_executor.shutdown(wait=False,cancel_futures=True)
+        self.analysis_timer.stop()
+        self.analysis_executor.shutdown(wait=False,cancel_futures=True)
         super().closeEvent(event)
 
 
