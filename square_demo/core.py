@@ -2,9 +2,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from itertools import combinations
-
 import numpy as np
+
+from .grid import corner_indices, grid_acceptance, grid_metrics
 
 
 @dataclass
@@ -109,10 +109,19 @@ def zenith_orbit(t_s, zenith_s, orbit, observer):
     ez = np.broadcast_to(ez0, ex.shape)
     basis = np.stack((ex, ey, ez), axis=-1)
     r0 = a*ex
-    lam = lon + theta_0 + omega_e*(t-zenith_s)
-    robs = re*np.stack((np.cos(lat)*np.cos(lam), np.cos(lat)*np.sin(lam),
-                         np.full_like(lam, np.sin(lat))), axis=-1)
+    robs = observer_eci(t,zenith_s,re,observer)
     return r0, basis, robs, n
+
+
+def observer_eci(t_s, epoch_s, earth_radius_km, observer):
+    """Условная ECI: Гринвичский угол задан в epoch_s, Земля сферическая."""
+    t = np.asarray(t_s,dtype=float)
+    lat = np.deg2rad(float(observer["latitude_deg"]))
+    lon = np.deg2rad(float(observer["longitude_deg"]))
+    theta = np.deg2rad(float(observer["greenwich_angle_at_zenith_deg"]))
+    lam = lon+theta+float(observer["earth_rotation_rad_s"])*(t-epoch_s)
+    return float(earth_radius_km)*np.stack((np.cos(lat)*np.cos(lam),
+        np.cos(lat)*np.sin(lam),np.full_like(lam,np.sin(lat))),axis=-1)
 
 
 def hcw_free(tau_s, rho0_km, vel0_km_s, n):
@@ -215,15 +224,18 @@ def observability(result):
     """Критерии TeX, отклонение размера и причины отказа во всех узлах."""
     vis = result.metadata["visibility"]
     errors = result.shape_errors
-    min_elevation = np.min(result.elevation_deg[:,:4],axis=1)
+    corners = result.metadata.get("corner_indices",[0,1,2,3])
+    min_elevation = np.min(result.elevation_deg,axis=1)
     mean_side = np.mean(result.square_sides_gnomonic,axis=1)
-    desired_side = np.linalg.norm(result.target_image_gnomonic[1]-result.target_image_gnomonic[0])
+    desired_side = np.linalg.norm(result.target_image_gnomonic[corners[1]]
+                                  -result.target_image_gnomonic[corners[0]])
     size_deviation_percent = 100*(mean_side/desired_side-1)
-    edges = np.roll(result.image_gnomonic[:,:4],-1,axis=1)-result.image_gnomonic[:,:4]
+    outer = result.image_gnomonic[:,corners]
+    edges = np.roll(outer,-1,axis=1)-outer
     next_edges = np.roll(edges,-1,axis=1)
     crosses = edges[:,:,0]*next_edges[:,:,1]-edges[:,:,1]*next_edges[:,:,0]
     convex = np.all(crosses > 0,axis=1)
-    eligible = (np.all(result.image_valid[:,:4],axis=1)
+    eligible = (np.all(result.image_valid,axis=1)
                 & convex
                 & np.all(np.isfinite(errors),axis=1)
                 & (min_elevation >= vis["min_elevation_deg"])
@@ -233,9 +245,9 @@ def observability(result):
     reasons = []
     for k in range(len(result.t_s)):
         problems = []
-        if not np.all(result.image_valid[k,:4]):
+        if not np.all(result.image_valid[k]):
             problems.append("гномоническая проекция не определена")
-        if np.all(result.image_valid[k,:4]) and not convex[k]:
+        if np.all(result.image_valid[k]) and not convex[k]:
             problems.append("контур не является выпуклым")
         if not np.isfinite(errors[k]).all():
             problems.append("показатели формы не определены")
@@ -248,7 +260,16 @@ def observability(result):
         angle_deg = np.rad2deg(errors[k,2])
         if np.isfinite(angle_deg) and angle_deg > vis["max_angle_error_deg"]:
             problems.append(f"εγ={angle_deg:.2f}° > {vis['max_angle_error_deg']:g}°")
-        reasons.append("; ".join(problems) if problems else "все условия формы и видимости выполнены")
+        reasons.append(problems)
+    if "grid_metrics" in result.metadata:
+        grid_ok,grid_reasons = grid_acceptance(result.metadata["grid_metrics"],
+            result.metadata["grid_size"],result.metadata["grid_tolerances"])
+        eligible &= grid_ok
+        for k,reason in enumerate(grid_reasons):
+            if reason:
+                reasons[k].append(reason)
+    reasons = ["; ".join(items) if items else "все условия формы и видимости выполнены"
+               for items in reasons]
     threshold = result.metadata["illustrative_min_separation_km"]
     return {"eligible":eligible, "reasons":reasons, "min_elevation_deg":min_elevation,
             "mean_side_gnomonic":mean_side, "size_deviation_percent":size_deviation_percent,
@@ -271,10 +292,25 @@ def visibility_summary(result):
     else:
         duration = 0.0
         interval = None
+    transitions = np.diff(np.r_[False,eligible,False].astype(int))
+    starts = np.flatnonzero(transitions==1)
+    ends = np.flatnonzero(transitions==-1)-1
+    if len(starts):
+        lengths = result.t_s[ends]-result.t_s[starts]
+        longest = int(np.argmax(lengths))
+        longest_duration = float(lengths[longest])
+        longest_interval = (float(result.t_s[starts[longest]]),
+                            float(result.t_s[ends[longest]]))
+    else:
+        longest_duration = 0.0
+        longest_interval = None
     finite = np.isfinite(errors).all(axis=1)
     maxima = np.max(errors[finite],axis=0) if finite.any() else np.full(3,np.nan)
-    return {"zenith_contiguous_duration_s": duration,
+    summary = {"zenith_contiguous_duration_s": duration,
             "zenith_interval_s": interval,
+            "longest_contiguous_duration_s":longest_duration,
+            "longest_interval_s":longest_interval,
+            "has_positive_duration_interval":bool(longest_duration>0),
             "accepted_nodes": int(eligible.sum()),
             "max_side_error": float(maxima[0]), "max_diagonal_error": float(maxima[1]),
             "max_angle_error_deg": float(np.rad2deg(maxima[2])),
@@ -284,14 +320,36 @@ def visibility_summary(result):
                                           float(np.nanmax(result.square_diagonals_gnomonic))),
             "angle_range_deg": (float(np.rad2deg(np.nanmin(result.square_angles_rad))),
                                 float(np.rad2deg(np.nanmax(result.square_angles_rad)))),
-            "min_elevation_deg": float(np.min(result.elevation_deg[:,:4])),
+            "min_elevation_deg": float(np.min(result.elevation_deg)),
             "min_pair_distance_km": float(np.min(result.min_pair_distance_km)),
-            "all_image_valid": bool(np.all(result.image_valid[:,:4]))}
+            "all_image_valid": bool(np.all(result.image_valid))}
+    if "grid_metrics" in result.metadata:
+        metrics = result.metadata["grid_metrics"]
+        summary.update({
+            "max_point_error_steps":float(np.nanmax(metrics["point_error_steps"])),
+            "max_neighbor_step_error":float(np.nanmax(metrics["neighbor_step_error"])),
+            "max_cell_side_error":float(np.nanmax(metrics["max_cell_side_error"])),
+            "max_cell_diagonal_error":float(np.nanmax(metrics["max_cell_diagonal_error"])),
+            "max_cell_angle_error_deg":float(np.nanmax(metrics["max_cell_angle_error_deg"])),
+            "min_true_neighbor_angle_deg":float(np.nanmin(metrics["min_true_neighbor_angle_deg"])),
+        })
+    return summary
 
 
 def assemble(t, rho, accel, target, orbit, observer, zenith_s, metadata):
     r0, basis, robs, n = zenith_orbit(t, zenith_s, orbit, observer)
     r = r0[:, None, :] + np.einsum("nij,nsj->nsi", basis, rho)
+    orbit_t = zenith_s + np.linspace(0, 2*np.pi/n, 361)
+    orbit_line = zenith_orbit(orbit_t, zenith_s, orbit, observer)[0]
+    return assemble_absolute(t,r,basis,robs,accel,target,orbit,metadata,orbit_line,
+                             reference_period_s=2*np.pi/n)
+
+
+def assemble_absolute(t, r, basis, robs, accel, target, orbit, metadata,
+                      orbit_line, reference_period_s):
+    """Единая геометрия GUI для HCW, CSV и абсолютных орбит с J₂."""
+    rho = np.einsum("nji,nsj->nsi",basis,r-r[:,0:1])
+    rho[:,0] = 0
     earth_radius = float(orbit["earth_radius_km"])
     min_altitude = float(np.min(np.linalg.norm(r,axis=2)-earth_radius))
     if min_altitude <= 0:
@@ -300,14 +358,18 @@ def assemble(t, rho, accel, target, orbit, observer, zenith_s, metadata):
     dt = np.diff(t)
     dv = np.zeros((len(t), rho.shape[1]))
     dv[1:] = np.cumsum(np.linalg.norm(accel, axis=2)*dt[:, None], axis=0)
-    minpair = np.min(np.stack([np.linalg.norm(r[:, i]-r[:, j], axis=1)
-                               for i,j in combinations(range(rho.shape[1]), 2)]), axis=0)
-    orbit_t = zenith_s + np.linspace(0, 2*np.pi/n, 361)
-    orbit_line = zenith_orbit(orbit_t, zenith_s, orbit, observer)[0]
-    sides,diagonals,angles,errors = square_geometry(image,valid)
+    minpair = np.full(len(t),np.inf)
+    for i in range(rho.shape[1]-1):
+        distances = np.linalg.norm(r[:,i+1:]-r[:,i:i+1],axis=2)
+        minpair = np.minimum(minpair,np.min(distances,axis=1))
+    corners = corner_indices(metadata["grid_size"]) if "grid_size" in metadata else np.arange(4)
+    sides,diagonals,angles,errors = square_geometry(image[:,corners],valid[:,corners])
+    if "grid_size" in metadata:
+        metadata["corner_indices"] = corners.tolist()
+        metadata["grid_metrics"] = grid_metrics(image,valid,r,robs,metadata["grid_size"])
     metadata = dict(metadata, orbit_radius_km=float(orbit["earth_radius_km"]),
                     reference_altitude_km=float(orbit["altitude_km"]),
-                    reference_period_s=float(2*np.pi/n),
+                    reference_period_s=float(reference_period_s),
                     min_altitude_km=min_altitude,
                     min_pair_distance_over_window_km=float(np.min(minpair)),
                     separation_meets_illustrative_threshold=bool(

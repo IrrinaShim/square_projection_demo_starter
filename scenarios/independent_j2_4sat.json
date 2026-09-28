@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "scenario_id": "four_osculating_orbits_j2_pass",
+  "mode": "independent_j2",
+  "grid_size": 2,
+  "epoch_utc": "2026-09-28T00:00:00Z",
+  "epoch_s": 0.0,
+  "angle_convention": "gnomonic_axis_angle_from_reference",
+  "angular_side_deg": 1.8183029644518331,
+  "orbit": {
+    "earth_radius_km": 6371.0,
+    "mu_km3_s2": 398600.4,
+    "j2": 0.00108262668,
+    "altitude_km": 630.0,
+    "inclination_deg": 97.8
+  },
+  "observer": {
+    "latitude_deg": 25.3026,
+    "longitude_deg": 51.5132,
+    "earth_rotation_rad_s": 0.00007292115,
+    "greenwich_angle_at_zenith_deg": 0.0
+  },
+  "time": {
+    "start_s": -450.0,
+    "end_s": 450.0,
+    "step_s": 5.0
+  },
+  "integration": {
+    "max_step_s": 2.0,
+    "full_orbit_sample_step_s": 5.0,
+    "minimum_refinement_step_s": 0.1
+  },
+  "elements_at_epoch": [
+    {"a_km": 7001.0, "e": 0.0, "inclination_deg": 97.8, "raan_deg": 55.226224550333264, "arg_perigee_deg": 0.0, "true_anomaly_deg": 25.55581683149022},
+    {"a_km": 6999.513399782704, "e": 0.005588439172387099, "inclination_deg": 97.79917455338915, "raan_deg": 55.225823232229615, "arg_perigee_deg": 118.02218670907304, "true_anomaly_deg": 267.6972158188421},
+    {"a_km": 6997.834906393122, "e": 0.006219012846158065, "inclination_deg": 97.87728520801498, "raan_deg": 55.08045321751226, "arg_perigee_deg": 120.09288722493092, "true_anomaly_deg": 265.60669984971656},
+    {"a_km": 6999.423776232544, "e": 0.0006592847893352296, "inclination_deg": 97.87059319278481, "raan_deg": 55.07715059365311, "arg_perigee_deg": 136.40329896054158, "true_anomaly_deg": 249.13219522631357}
+  ],
+  "visibility": {
+    "min_elevation_deg": 15.0,
+    "max_side_error": 0.1,
+    "max_diagonal_error": 0.1,
+    "max_angle_error_deg": 10.0
+  },
+  "grid_tolerances": {
+    "min_neighbor_angle_deg": 0.1,
+    "max_point_error_steps": 0.1,
+    "max_neighbor_step_error": 0.1,
+    "max_cell_side_error": 0.1,
+    "max_cell_diagonal_error": 0.1,
+    "max_cell_angle_error_deg": 10.0
+  },
+  "safety": {
+    "illustrative_min_separation_km": 1.0
+  },
+  "note": "Элементы получены из начального состояния подобранного HCW-варианта на общей эпохе; далее каждый КА распространяется отдельно в поле J2 без тяги. Это воспроизводимый кандидат, а не оптимальная или сертифицированная формация."
+}

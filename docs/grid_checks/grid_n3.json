@@ -1,0 +1,894 @@
+{
+  "scenario_id": "four_osculating_orbits_j2_pass",
+  "model": "independent osculating orbits, nonlinear J2, zero thrust",
+  "epoch_utc": "2026-09-28T00:00:00Z",
+  "grid_size": 3,
+  "satellite_count": 9,
+  "index_map_rows_bottom_to_top": [
+    [
+      0,
+      1,
+      2
+    ],
+    [
+      5,
+      4,
+      3
+    ],
+    [
+      6,
+      7,
+      8
+    ]
+  ],
+  "corner_indices": [
+    0,
+    2,
+    8,
+    6
+  ],
+  "angular_side_deg": 1.8183029644518331,
+  "orbit_constants": {
+    "earth_radius_km": 6371.0,
+    "mu_km3_s2": 398600.4,
+    "j2": 0.00108262668,
+    "altitude_km": 630.0,
+    "inclination_deg": 97.8
+  },
+  "observer": {
+    "latitude_deg": 25.3026,
+    "longitude_deg": 51.5132,
+    "earth_rotation_rad_s": 7.292115e-05,
+    "greenwich_angle_at_zenith_deg": 0.0
+  },
+  "time": {
+    "start_s": -450.0,
+    "end_s": 450.0,
+    "step_s": 5.0
+  },
+  "integration": {
+    "max_step_s": 2.0,
+    "full_orbit_sample_step_s": 5.0,
+    "minimum_refinement_step_s": 0.1
+  },
+  "visibility": {
+    "min_elevation_deg": 15.0,
+    "max_side_error": 0.1,
+    "max_diagonal_error": 0.1,
+    "max_angle_error_deg": 10.0
+  },
+  "grid_tolerances": {
+    "min_neighbor_angle_deg": 0.1,
+    "max_point_error_steps": 0.1,
+    "max_neighbor_step_error": 0.1,
+    "max_cell_side_error": 0.1,
+    "max_cell_diagonal_error": 0.1,
+    "max_cell_angle_error_deg": 10.0
+  },
+  "elements_at_epoch": [
+    {
+      "a_km": 7001.0,
+      "e": 1.1102230246251565e-16,
+      "inclination_deg": 97.8,
+      "raan_deg": 55.226224550333264,
+      "arg_perigee_deg": 0.0,
+      "true_anomaly_deg": 25.55581683149022
+    },
+    {
+      "a_km": 7000.117667439233,
+      "e": 0.0027945920793114054,
+      "inclination_deg": 97.79958701245543,
+      "raan_deg": 55.22602449538059,
+      "arg_perigee_deg": 118.16655177337928,
+      "true_anomaly_deg": 267.4710677147528
+    },
+    {
+      "a_km": 6999.51339978271,
+      "e": 0.005588439172387235,
+      "inclination_deg": 97.79917455338915,
+      "raan_deg": 55.225823232229615,
+      "arg_perigee_deg": 118.02218670906905,
+      "true_anomaly_deg": 267.6972158188461
+    },
+    {
+      "a_km": 6998.659062657775,
+      "e": 0.005902912873908769,
+      "inclination_deg": 97.83821307215709,
+      "raan_deg": 55.15313393053656,
+      "arg_perigee_deg": 119.12328483578082,
+      "true_anomaly_deg": 266.58623109908
+    },
+    {
+      "a_km": 6999.288913025197,
+      "e": 0.0031098767043318204,
+      "inclination_deg": 97.836747286259,
+      "raan_deg": 55.152407185844496,
+      "arg_perigee_deg": 120.16475317678018,
+      "true_anomaly_deg": 265.46285410212954
+    },
+    {
+      "a_km": 7000.196826772295,
+      "e": 0.0003300240100691139,
+      "inclination_deg": 97.83527954044872,
+      "raan_deg": 55.15168471882933,
+      "arg_perigee_deg": 136.5784471595484,
+      "true_anomaly_deg": 248.96723070274714
+    },
+    {
+      "a_km": 6999.423776232548,
+      "e": 0.0006592847893350147,
+      "inclination_deg": 97.87059319278481,
+      "raan_deg": 55.07715059365311,
+      "arg_perigee_deg": 136.40329896051074,
+      "true_anomaly_deg": 249.1321952263444
+    },
+    {
+      "a_km": 6998.490296097226,
+      "e": 0.0034279353004638045,
+      "inclination_deg": 97.87394142748869,
+      "raan_deg": 55.07879701487006,
+      "arg_perigee_deg": 121.75777270905284,
+      "true_anomaly_deg": 263.85977883955405
+    },
+    {
+      "a_km": 6997.834906393122,
+      "e": 0.0062190128461579695,
+      "inclination_deg": 97.87728520801498,
+      "raan_deg": 55.080453217512265,
+      "arg_perigee_deg": 120.0928872249314,
+      "true_anomaly_deg": 265.60669984971605
+    }
+  ],
+  "display": {
+    "array_shape": [
+      181,
+      9,
+      3
+    ],
+    "max_initial_projection_error_gnomonic": 6.404599073306372e-15,
+    "quality": {
+      "zenith_contiguous_duration_s": 185.0,
+      "zenith_interval_s": [
+        -95.0,
+        90.0
+      ],
+      "longest_contiguous_duration_s": 185.0,
+      "longest_interval_s": [
+        -95.0,
+        90.0
+      ],
+      "has_positive_duration_interval": true,
+      "accepted_nodes": 64,
+      "max_side_error": 0.24435830166913441,
+      "max_diagonal_error": 0.08285424910622648,
+      "max_angle_error_deg": 5.580543057261911,
+      "side_range_gnomonic": [
+        0.0052965353212301005,
+        0.03174603174603361
+      ],
+      "diagonal_range_gnomonic": [
+        0.009785290676603125,
+        0.04489566864676132
+      ],
+      "angle_range_deg": [
+        84.4402703904294,
+        95.5805430572619
+      ],
+      "min_elevation_deg": -3.9136144948004046,
+      "min_pair_distance_km": 8.725004189587507,
+      "all_image_valid": true,
+      "max_point_error_steps": 0.3480817082427149,
+      "max_neighbor_step_error": 0.2445723944912496,
+      "max_cell_side_error": 0.24471749755097918,
+      "max_cell_diagonal_error": 0.0850349717891939,
+      "max_cell_angle_error_deg": 5.564262493349862,
+      "min_true_neighbor_angle_deg": 0.15168518444574325
+    },
+    "zero_applied_thrust": true,
+    "max_grid_point_error_steps": 0.3480817082427149,
+    "max_neighbor_step_error": 0.2445723944912496,
+    "max_cell_side_error": 0.24471749755097918,
+    "max_cell_diagonal_error": 0.0850349717891939,
+    "max_cell_angle_error_deg": 5.564262493349862,
+    "min_true_neighbor_angle_deg": 0.15168518444574325,
+    "first_failure_reason": "угол места -3.40° ниже 15°; εb=0.2444 > 0.1; отклонение точки 0.348 шага > 0.1 шага; неравномерность соседних шагов 0.245 > 0.1; ошибка сторон ячейки 0.245 > 0.1"
+  },
+  "angle_threshold_examples_deg": {
+    "1": {
+      "accepted_nodes": 0,
+      "interval_around_epoch_s": null,
+      "duration_s": 0.0,
+      "longest_interval_s": null,
+      "has_positive_duration_interval": false
+    },
+    "2": {
+      "accepted_nodes": 0,
+      "interval_around_epoch_s": null,
+      "duration_s": 0.0,
+      "longest_interval_s": null,
+      "has_positive_duration_interval": false
+    }
+  },
+  "full_orbit": {
+    "status": "complete",
+    "nominal_period_s": 5829.765955816683,
+    "min_altitude_km": 583.5765774467036,
+    "closest_pair": {
+      "pair": "5-6",
+      "t_s": 1261.694201685468,
+      "utc": "2026-09-28T00:21:01.694202Z",
+      "distance_km": 4.834754878693205,
+      "latitude_deg": 74.45754508981176,
+      "longitude_deg": -100.37280973110597,
+      "method": "Hermite between J2 nodes"
+    },
+    "audit": {
+      "status": "complete",
+      "pair_count": 36,
+      "horizon_s": [
+        0.0,
+        5829.765955816683
+      ],
+      "sample_step_max_s": 4.999799276000886,
+      "refinement_step_max_s": 0.1,
+      "near_threshold_j2_refinements": 0,
+      "minimum_method": "cubic Hermite root; near threshold independently re-integrated with J2",
+      "threshold_km": 1.0,
+      "max_abs_chief_latitude_deg": 82.19149785498257,
+      "high_latitude_definition_deg": 60.0,
+      "pair_minima": {
+        "0-1": {
+          "pair": "0-1",
+          "t_s": 2.29101213776695,
+          "utc": "2026-09-28T00:00:02.291012Z",
+          "distance_km": 9.99880772013758,
+          "latitude_deg": 25.482916516060108,
+          "longitude_deg": 51.473298568741825,
+          "method": "Hermite between J2 nodes"
+        },
+        "0-2": {
+          "pair": "0-2",
+          "t_s": 2.2902923101946207,
+          "utc": "2026-09-28T00:00:02.290292Z",
+          "distance_km": 19.995048442748338,
+          "latitude_deg": 25.523309608959234,
+          "longitude_deg": 51.4664953165653,
+          "method": "Hermite between J2 nodes"
+        },
+        "0-3": {
+          "pair": "0-3",
+          "t_s": 3.827507680357672,
+          "utc": "2026-09-28T00:00:03.827508Z",
+          "distance_km": 22.35434329994512,
+          "latitude_deg": 25.610980061777834,
+          "longitude_deg": 51.39938451246891,
+          "method": "Hermite between J2 nodes"
+        },
+        "0-4": {
+          "pair": "0-4",
+          "t_s": 5.69930567472013,
+          "utc": "2026-09-28T00:00:05.699306Z",
+          "distance_km": 14.139648677007049,
+          "latitude_deg": 25.68480616896814,
+          "longitude_deg": 51.37905939490642,
+          "method": "Hermite between J2 nodes"
+        },
+        "0-5": {
+          "pair": "0-5",
+          "t_s": 1258.9862686568179,
+          "utc": "2026-09-28T00:20:58.986269Z",
+          "distance_km": 4.869523930483256,
+          "latitude_deg": 74.63400169527193,
+          "longitude_deg": -100.04242976360955,
+          "method": "Hermite between J2 nodes"
+        },
+        "0-6": {
+          "pair": "0-6",
+          "t_s": 1260.3419268134335,
+          "utc": "2026-09-28T00:21:00.341927Z",
+          "distance_km": 9.70432534973258,
+          "latitude_deg": 74.54579341033786,
+          "longitude_deg": -100.20839609864433,
+          "method": "Hermite between J2 nodes"
+        },
+        "0-7": {
+          "pair": "0-7",
+          "t_s": 5.55871729835307,
+          "utc": "2026-09-28T00:00:05.558717Z",
+          "distance_km": 22.358087928577564,
+          "latitude_deg": 25.670031380516697,
+          "longitude_deg": 51.33622018081377,
+          "method": "Hermite between J2 nodes"
+        },
+        "0-8": {
+          "pair": "0-8",
+          "t_s": 3.1086029743971175,
+          "utc": "2026-09-28T00:00:03.108603Z",
+          "distance_km": 28.276991595163846,
+          "latitude_deg": 25.560914497685918,
+          "longitude_deg": 51.364976841982866,
+          "method": "Hermite between J2 nodes"
+        },
+        "1-2": {
+          "pair": "1-2",
+          "t_s": 2.289572519873699,
+          "utc": "2026-09-28T00:00:02.289573Z",
+          "distance_km": 9.996240722603444,
+          "latitude_deg": 25.56371344003338,
+          "longitude_deg": 51.459685615648226,
+          "method": "Hermite between J2 nodes"
+        },
+        "1-3": {
+          "pair": "1-3",
+          "t_s": 3.1072252124659774,
+          "utc": "2026-09-28T00:00:03.107225Z",
+          "distance_km": 14.137565631278676,
+          "latitude_deg": 25.607457394769614,
+          "longitude_deg": 51.40299152229758,
+          "method": "Hermite between J2 nodes"
+        },
+        "1-4": {
+          "pair": "1-4",
+          "t_s": 1269.011151489888,
+          "utc": "2026-09-28T00:21:09.011151Z",
+          "distance_km": 4.99186349957129,
+          "latitude_deg": 73.80439304702476,
+          "longitude_deg": -101.84791464659689,
+          "method": "Hermite between J2 nodes"
+        },
+        "1-5": {
+          "pair": "1-5",
+          "t_s": 0.0,
+          "utc": "2026-09-28T00:00:00Z",
+          "distance_km": 14.141778685460737,
+          "latitude_deg": 25.336899064311133,
+          "longitude_deg": 51.46164105263529,
+          "method": "узел"
+        },
+        "1-6": {
+          "pair": "1-6",
+          "t_s": 5459.710935689031,
+          "utc": "2026-09-28T01:30:59.710936Z",
+          "distance_km": 19.966661250542167,
+          "latitude_deg": 2.813668724705441,
+          "longitude_deg": 32.01875008312106,
+          "method": "Hermite between J2 nodes"
+        },
+        "1-7": {
+          "pair": "1-7",
+          "t_s": 1270.4267163914674,
+          "utc": "2026-09-28T00:21:10.426716Z",
+          "distance_km": 9.94780236589844,
+          "latitude_deg": 73.71077923294011,
+          "longitude_deg": -102.00364739647627,
+          "method": "Hermite between J2 nodes"
+        },
+        "1-8": {
+          "pair": "1-8",
+          "t_s": 0.0,
+          "utc": "2026-09-28T00:00:00Z",
+          "distance_km": 22.3546699340999,
+          "latitude_deg": 25.411620993544133,
+          "longitude_deg": 51.403243942819415,
+          "method": "узел"
+        },
+        "2-3": {
+          "pair": "2-3",
+          "t_s": 1278.8470017204672,
+          "utc": "2026-09-28T00:21:18.847002Z",
+          "distance_km": 5.115811501478877,
+          "latitude_deg": 72.96504222639959,
+          "longitude_deg": -103.47771585352436,
+          "method": "Hermite between J2 nodes"
+        },
+        "2-4": {
+          "pair": "2-4",
+          "t_s": 5813.9650938730565,
+          "utc": "2026-09-28T01:36:53.965094Z",
+          "distance_km": 12.553184461242482,
+          "latitude_deg": 24.571336485283595,
+          "longitude_deg": 27.3646611983867,
+          "method": "Hermite between J2 nodes"
+        },
+        "2-5": {
+          "pair": "2-5",
+          "t_s": 0.0,
+          "utc": "2026-09-28T00:00:00Z",
+          "distance_km": 22.35694021952905,
+          "latitude_deg": 25.377337534364916,
+          "longitude_deg": 51.45482728868882,
+          "method": "узел"
+        },
+        "2-6": {
+          "pair": "2-6",
+          "t_s": 5818.0138856142785,
+          "utc": "2026-09-28T01:36:58.013886Z",
+          "distance_km": 27.30931946250466,
+          "latitude_deg": 24.76776824093559,
+          "longitude_deg": 27.26956403846731,
+          "method": "Hermite between J2 nodes"
+        },
+        "2-7": {
+          "pair": "2-7",
+          "t_s": 5297.476502749984,
+          "utc": "2026-09-28T01:28:17.476503Z",
+          "distance_km": 19.02808798961873,
+          "latitude_deg": -6.910144934947917,
+          "longitude_deg": 34.040246693986745,
+          "method": "Hermite between J2 nodes"
+        },
+        "2-8": {
+          "pair": "2-8",
+          "t_s": 1280.3242804327865,
+          "utc": "2026-09-28T00:21:20.324280Z",
+          "distance_km": 10.194464306062658,
+          "latitude_deg": 72.86596693236153,
+          "longitude_deg": -103.62446761225847,
+          "method": "Hermite between J2 nodes"
+        },
+        "3-4": {
+          "pair": "3-4",
+          "t_s": 2.1704444744698317,
+          "utc": "2026-09-28T00:00:02.170444Z",
+          "distance_km": 9.99623731145381,
+          "latitude_deg": 25.544095843347545,
+          "longitude_deg": 51.37174578164229,
+          "method": "Hermite between J2 nodes"
+        },
+        "3-5": {
+          "pair": "3-5",
+          "t_s": 2.1712570207953648,
+          "utc": "2026-09-28T00:00:02.171257Z",
+          "distance_km": 19.995297718337188,
+          "latitude_deg": 25.503700623182795,
+          "longitude_deg": 51.37857960518403,
+          "method": "Hermite between J2 nodes"
+        },
+        "3-6": {
+          "pair": "3-6",
+          "t_s": 0.4218555103285671,
+          "utc": "2026-09-28T00:00:00.421856Z",
+          "distance_km": 22.35864195946668,
+          "latitude_deg": 25.390737780204415,
+          "longitude_deg": 51.35917286467742,
+          "method": "Hermite between J2 nodes"
+        },
+        "3-7": {
+          "pair": "3-7",
+          "t_s": 5817.036764004703,
+          "utc": "2026-09-28T01:36:57.036764Z",
+          "distance_km": 12.884669006913244,
+          "latitude_deg": 24.809938662739878,
+          "longitude_deg": 27.22125811397666,
+          "method": "Hermite between J2 nodes"
+        },
+        "3-8": {
+          "pair": "3-8",
+          "t_s": 1281.797937898534,
+          "utc": "2026-09-28T00:21:21.797938Z",
+          "distance_km": 5.078599254452464,
+          "latitude_deg": 72.76686801516391,
+          "longitude_deg": -103.76989116436891,
+          "method": "Hermite between J2 nodes"
+        },
+        "4-5": {
+          "pair": "4-5",
+          "t_s": 2.1720696229980088,
+          "utc": "2026-09-28T00:00:02.172070Z",
+          "distance_km": 9.999060406875177,
+          "latitude_deg": 25.463317207909643,
+          "longitude_deg": 51.385406781719155,
+          "method": "Hermite between J2 nodes"
+        },
+        "4-6": {
+          "pair": "4-6",
+          "t_s": 0.0,
+          "utc": "2026-09-28T00:00:00Z",
+          "distance_km": 14.143357008643754,
+          "latitude_deg": 25.324556086090865,
+          "longitude_deg": 51.372133006862754,
+          "method": "узел"
+        },
+        "4-7": {
+          "pair": "4-7",
+          "t_s": 1271.8387815605656,
+          "utc": "2026-09-28T00:21:11.838782Z",
+          "distance_km": 4.955888935461641,
+          "latitude_deg": 73.6171342377489,
+          "longitude_deg": -102.15794603022208,
+          "method": "Hermite between J2 nodes"
+        },
+        "4-8": {
+          "pair": "4-8",
+          "t_s": 0.5201281503752153,
+          "utc": "2026-09-28T00:00:00.520128Z",
+          "distance_km": 14.136903299448276,
+          "latitude_deg": 25.43718313933877,
+          "longitude_deg": 51.350912109589274,
+          "method": "Hermite between J2 nodes"
+        },
+        "5-6": {
+          "pair": "5-6",
+          "t_s": 1261.694201685468,
+          "utc": "2026-09-28T00:21:01.694202Z",
+          "distance_km": 4.834754878693205,
+          "latitude_deg": 74.45754508981176,
+          "longitude_deg": -100.37280973110597,
+          "method": "Hermite between J2 nodes"
+        },
+        "5-7": {
+          "pair": "5-7",
+          "t_s": 3.1101731212221586,
+          "utc": "2026-09-28T00:00:03.110173Z",
+          "distance_km": 14.13978823286278,
+          "latitude_deg": 25.51438379408996,
+          "longitude_deg": 51.32697472065644,
+          "method": "Hermite between J2 nodes"
+        },
+        "5-8": {
+          "pair": "5-8",
+          "t_s": 2.4883167505502026,
+          "utc": "2026-09-28T00:00:02.488317Z",
+          "distance_km": 22.354003132244095,
+          "latitude_deg": 25.516860484391835,
+          "longitude_deg": 51.32916173023659,
+          "method": "Hermite between J2 nodes"
+        },
+        "6-7": {
+          "pair": "6-7",
+          "t_s": 2.053731549566745,
+          "utc": "2026-09-28T00:00:02.053732Z",
+          "distance_km": 9.999318482194143,
+          "latitude_deg": 25.44370237099815,
+          "longitude_deg": 51.29753167386312,
+          "method": "Hermite between J2 nodes"
+        },
+        "6-8": {
+          "pair": "6-8",
+          "t_s": 2.0528227083528914,
+          "utc": "2026-09-28T00:00:02.052823Z",
+          "distance_km": 19.995557775127683,
+          "latitude_deg": 25.484075995764876,
+          "longitude_deg": 51.29068201213735,
+          "method": "Hermite between J2 nodes"
+        },
+        "7-8": {
+          "pair": "7-8",
+          "t_s": 2.0519139416418524,
+          "utc": "2026-09-28T00:00:02.051914Z",
+          "distance_km": 9.996239292920684,
+          "latitude_deg": 25.524462492192207,
+          "longitude_deg": 51.28382550514078,
+          "method": "Hermite between J2 nodes"
+        }
+      },
+      "high_latitude_sample_minima": {
+        "0-1": {
+          "pair": "0-1",
+          "t_s": 574.9769167400674,
+          "utc": "2026-09-28T00:09:34.976917Z",
+          "distance_km": 20.67090666143298,
+          "latitude_deg": 60.17281332303506,
+          "longitude_deg": 38.99636722212111,
+          "method": "узел высокой широты"
+        },
+        "0-2": {
+          "pair": "0-2",
+          "t_s": 574.9769167400674,
+          "utc": "2026-09-28T00:09:34.976917Z",
+          "distance_km": 41.33049701187676,
+          "latitude_deg": 60.24031882355352,
+          "longitude_deg": 38.95804534227227,
+          "method": "узел высокой широты"
+        },
+        "0-3": {
+          "pair": "0-3",
+          "t_s": 574.9769167400674,
+          "utc": "2026-09-28T00:09:34.976917Z",
+          "distance_km": 43.427955373233225,
+          "latitude_deg": 60.23324627684814,
+          "longitude_deg": 38.890162904952774,
+          "method": "узел высокой широты"
+        },
+        "0-4": {
+          "pair": "0-4",
+          "t_s": 574.9769167400674,
+          "utc": "2026-09-28T00:09:34.976917Z",
+          "distance_km": 23.45326644678242,
+          "latitude_deg": 60.165894712113314,
+          "longitude_deg": 38.92962236520296,
+          "method": "узел высокой широты"
+        },
+        "0-5": {
+          "pair": "0-5",
+          "t_s": 1259.9494175521477,
+          "utc": "2026-09-28T00:20:59.949418Z",
+          "distance_km": 4.869537356142418,
+          "latitude_deg": 74.58297627369046,
+          "longitude_deg": -100.16134870108664,
+          "method": "узел высокой широты"
+        },
+        "0-6": {
+          "pair": "0-6",
+          "t_s": 1259.9494175521477,
+          "utc": "2026-09-28T00:20:59.949418Z",
+          "distance_km": 9.704329820106032,
+          "latitude_deg": 74.56660308411521,
+          "longitude_deg": -100.16012140518465,
+          "method": "узел высокой широты"
+        },
+        "0-7": {
+          "pair": "0-7",
+          "t_s": 574.9769167400674,
+          "utc": "2026-09-28T00:09:34.976917Z",
+          "distance_km": 28.52241448936241,
+          "latitude_deg": 60.15892899414089,
+          "longitude_deg": 38.86290292582322,
+          "method": "узел высокой широты"
+        },
+        "0-8": {
+          "pair": "0-8",
+          "t_s": 574.9769167400674,
+          "utc": "2026-09-28T00:09:34.976917Z",
+          "distance_km": 46.99196231911719,
+          "latitude_deg": 60.22612563564865,
+          "longitude_deg": 38.82230861466175,
+          "method": "узел высокой широты"
+        },
+        "1-2": {
+          "pair": "1-2",
+          "t_s": 574.9769167400674,
+          "utc": "2026-09-28T00:09:34.976917Z",
+          "distance_km": 20.659590610403185,
+          "latitude_deg": 60.307972181618865,
+          "longitude_deg": 38.91947433149241,
+          "method": "узел высокой широты"
+        },
+        "1-3": {
+          "pair": "1-3",
+          "t_s": 574.9769167400674,
+          "utc": "2026-09-28T00:09:34.976917Z",
+          "distance_km": 23.49420864323117,
+          "latitude_deg": 60.30088088404815,
+          "longitude_deg": 38.8513996217485,
+          "method": "узел высокой широты"
+        },
+        "1-4": {
+          "pair": "1-4",
+          "t_s": 1269.949016104149,
+          "utc": "2026-09-28T00:21:09.949016Z",
+          "distance_km": 4.991875999363698,
+          "latitude_deg": 73.75356766584413,
+          "longitude_deg": -101.95340667904868,
+          "method": "узел высокой широты"
+        },
+        "1-5": {
+          "pair": "1-5",
+          "t_s": 574.9769167400674,
+          "utc": "2026-09-28T00:09:34.976917Z",
+          "distance_km": 21.06975826454605,
+          "latitude_deg": 60.16602938970454,
+          "longitude_deg": 38.930569490055575,
+          "method": "узел высокой широты"
+        },
+        "1-6": {
+          "pair": "1-6",
+          "t_s": 574.9769167400674,
+          "utc": "2026-09-28T00:09:34.976917Z",
+          "distance_km": 24.45083580712842,
+          "latitude_deg": 60.159199129501005,
+          "longitude_deg": 38.86479472667128,
+          "method": "узел высокой широты"
+        },
+        "1-7": {
+          "pair": "1-7",
+          "t_s": 1269.949016104149,
+          "utc": "2026-09-28T00:21:09.949016Z",
+          "distance_km": 9.947808867599585,
+          "latitude_deg": 73.73668424162906,
+          "longitude_deg": -101.95011627910554,
+          "method": "узел высокой широты"
+        },
+        "1-8": {
+          "pair": "1-8",
+          "t_s": 574.9769167400674,
+          "utc": "2026-09-28T00:09:34.976917Z",
+          "distance_km": 28.668849779363466,
+          "latitude_deg": 60.29374129674379,
+          "longitude_deg": 38.78335332989761,
+          "method": "узел высокой широты"
+        },
+        "2-3": {
+          "pair": "2-3",
+          "t_s": 1279.94861465615,
+          "utc": "2026-09-28T00:21:19.948615Z",
+          "distance_km": 5.115828452385881,
+          "latitude_deg": 72.90413528936679,
+          "longitude_deg": -103.59103681495206,
+          "method": "узел высокой широты"
+        },
+        "2-4": {
+          "pair": "2-4",
+          "t_s": 574.9769167400674,
+          "utc": "2026-09-28T00:09:34.976917Z",
+          "distance_km": 21.09787375555174,
+          "latitude_deg": 60.30101683171964,
+          "longitude_deg": 38.85235131331842,
+          "method": "узел высокой широты"
+        },
+        "2-5": {
+          "pair": "2-5",
+          "t_s": 574.9769167400674,
+          "utc": "2026-09-28T00:09:34.976917Z",
+          "distance_km": 40.90245392238959,
+          "latitude_deg": 60.23351690047801,
+          "longitude_deg": 38.89206170857574,
+          "method": "узел высокой широты"
+        },
+        "2-6": {
+          "pair": "2-6",
+          "t_s": 574.9769167400674,
+          "utc": "2026-09-28T00:09:34.976917Z",
+          "distance_km": 42.13493769150701,
+          "latitude_deg": 60.22666846391568,
+          "longitude_deg": 38.82610128752651,
+          "method": "узел высокой широты"
+        },
+        "2-7": {
+          "pair": "2-7",
+          "t_s": 574.9769167400674,
+          "utc": "2026-09-28T00:09:34.976917Z",
+          "distance_km": 24.590489388814987,
+          "latitude_deg": 60.29401399299554,
+          "longitude_deg": 38.785254227283616,
+          "method": "узел высокой широты"
+        },
+        "2-8": {
+          "pair": "2-8",
+          "t_s": 1279.94861465615,
+          "utc": "2026-09-28T00:21:19.948615Z",
+          "distance_km": 10.194468258193378,
+          "latitude_deg": 72.88674954413376,
+          "longitude_deg": -103.58596279595177,
+          "method": "узел высокой широты"
+        },
+        "3-4": {
+          "pair": "3-4",
+          "t_s": 574.9769167400674,
+          "utc": "2026-09-28T00:09:34.976917Z",
+          "distance_km": 20.66898697492481,
+          "latitude_deg": 60.29388980327272,
+          "longitude_deg": 38.78429212535593,
+          "method": "узел высокой широты"
+        },
+        "3-5": {
+          "pair": "3-5",
+          "t_s": 574.9769167400674,
+          "utc": "2026-09-28T00:09:34.976917Z",
+          "distance_km": 41.34933631888778,
+          "latitude_deg": 60.22640927995927,
+          "longitude_deg": 38.8241942878542,
+          "method": "узел высокой широты"
+        },
+        "3-6": {
+          "pair": "3-6",
+          "t_s": 574.9769167400674,
+          "utc": "2026-09-28T00:09:34.976917Z",
+          "distance_km": 40.879301348476645,
+          "latitude_deg": 60.21952578458471,
+          "longitude_deg": 38.758249119011225,
+          "method": "узел высокой широты"
+        },
+        "3-7": {
+          "pair": "3-7",
+          "t_s": 574.9769167400674,
+          "utc": "2026-09-28T00:09:34.976917Z",
+          "distance_km": 21.06510123282087,
+          "latitude_deg": 60.286851250253214,
+          "longitude_deg": 38.717210803235076,
+          "method": "узел высокой широты"
+        },
+        "3-8": {
+          "pair": "3-8",
+          "t_s": 1279.94861465615,
+          "utc": "2026-09-28T00:21:19.948615Z",
+          "distance_km": 5.078647260465928,
+          "latitude_deg": 72.86923795466713,
+          "longitude_deg": -103.5810175445196,
+          "method": "узел высокой широты"
+        },
+        "4-5": {
+          "pair": "4-5",
+          "t_s": 574.9769167400674,
+          "utc": "2026-09-28T00:09:34.976917Z",
+          "distance_km": 20.680349632214998,
+          "latitude_deg": 60.15907634262103,
+          "longitude_deg": 38.86383916438899,
+          "method": "узел высокой широты"
+        },
+        "4-6": {
+          "pair": "4-6",
+          "t_s": 574.9769167400674,
+          "utc": "2026-09-28T00:09:34.976917Z",
+          "distance_km": 21.037726230217487,
+          "latitude_deg": 60.152211660778164,
+          "longitude_deg": 38.79807916291654,
+          "method": "узел высокой широты"
+        },
+        "4-7": {
+          "pair": "4-7",
+          "t_s": 1269.949016104149,
+          "utc": "2026-09-28T00:21:09.949016Z",
+          "distance_km": 4.955939935908256,
+          "latitude_deg": 73.71968145473652,
+          "longitude_deg": -101.94696531709826,
+          "method": "узел высокой широты"
+        },
+        "4-8": {
+          "pair": "4-8",
+          "t_s": 574.9769167400674,
+          "utc": "2026-09-28T00:09:34.976917Z",
+          "distance_km": 23.53923140671249,
+          "latitude_deg": 60.286714502730405,
+          "longitude_deg": 38.71626159887285,
+          "method": "узел высокой широты"
+        },
+        "5-6": {
+          "pair": "5-6",
+          "t_s": 1259.9494175521477,
+          "utc": "2026-09-28T00:20:59.949418Z",
+          "distance_km": 4.83479915496533,
+          "latitude_deg": 74.55011690578209,
+          "longitude_deg": -100.15904506618128,
+          "method": "узел высокой широты"
+        },
+        "5-7": {
+          "pair": "5-7",
+          "t_s": 574.9769167400674,
+          "utc": "2026-09-28T00:09:34.976917Z",
+          "distance_km": 23.497944436739793,
+          "latitude_deg": 60.15207620404674,
+          "longitude_deg": 38.79713448828389,
+          "method": "узел высокой широты"
+        },
+        "5-8": {
+          "pair": "5-8",
+          "t_s": 574.9769167400674,
+          "utc": "2026-09-28T00:09:34.976917Z",
+          "distance_km": 43.48608593107261,
+          "latitude_deg": 60.2192535820422,
+          "longitude_deg": 38.756355252584456,
+          "method": "узел высокой широты"
+        },
+        "6-7": {
+          "pair": "6-7",
+          "t_s": 574.9769167400674,
+          "utc": "2026-09-28T00:09:34.976917Z",
+          "distance_km": 20.690433013216488,
+          "latitude_deg": 60.14517711644383,
+          "longitude_deg": 38.73138948038965,
+          "method": "узел высокой широты"
+        },
+        "6-8": {
+          "pair": "6-8",
+          "t_s": 574.9769167400674,
+          "utc": "2026-09-28T00:09:34.976917Z",
+          "distance_km": 41.36945632526008,
+          "latitude_deg": 60.21233504527994,
+          "longitude_deg": 38.69042557399172,
+          "method": "узел высокой широты"
+        },
+        "7-8": {
+          "pair": "7-8",
+          "t_s": 574.9769167400674,
+          "utc": "2026-09-28T00:09:34.976917Z",
+          "distance_km": 20.67902362995007,
+          "latitude_deg": 60.27964025339214,
+          "longitude_deg": 38.64919628384891,
+          "method": "узел высокой широты"
+        }
+      },
+      "dangerous_events": []
+    }
+  }
+}

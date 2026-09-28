@@ -6,12 +6,17 @@ from pathlib import Path
 
 import numpy as np
 
-from .core import assemble, hcw_free, hcw_transition, image_frame, zenith_orbit
+from .core import (assemble, assemble_absolute, hcw_free, hcw_transition,
+                   image_frame, observer_eci, zenith_orbit)
+from .orbit_j2 import (elements_to_state, integrate, orbital_basis,
+                       separation_audit)
+from .grid import grid_indices, initial_grid_from_corners
 
 
 ROOT = Path(__file__).resolve().parent.parent
 SCENARIOS = {
     "free_hcw_two_body": ROOT / "scenarios/free_zenith.json",
+    "independent_j2": ROOT / "scenarios/independent_j2_4sat.json",
     "legacy_replay": ROOT / "scenarios/legacy_replay.json",
 }
 
@@ -212,6 +217,135 @@ def calculate_free_variants(scenario):
             for name in ("ideal","trial","fitted")}
 
 
+def audit_independent_grid(scenario, elements):
+    """Полный номинальный виток; вызывается и из фонового потока GUI."""
+    orbit = scenario["orbit"]
+    mu,re,j2 = (float(orbit[key]) for key in
+                ("mu_km3_s2","earth_radius_km","j2"))
+    settings = scenario["integration"]
+    initial = np.stack([elements_to_state(item,mu) for item in elements])
+    period = 2*np.pi*np.sqrt(float(elements[0]["a_km"])**3/mu)
+    audit_step = float(settings["full_orbit_sample_step_s"])
+    full_t = np.linspace(0,period,int(np.ceil(period/audit_step))+1)
+    full = integrate(initial,full_t,mu,re,j2,float(settings["max_step_s"]))
+    min_altitude = float(np.min(np.linalg.norm(full[:,:,0],axis=2)-re))
+    if min_altitude <= 0:
+        raise ValueError("Одна из орбит пересекла сферическую Землю на полном витке")
+    threshold = float(scenario["safety"]["illustrative_min_separation_km"])
+    audit = separation_audit(full,full_t,mu,re,j2,scenario["observer"],
+                             scenario["epoch_utc"],threshold,
+                             float(settings["minimum_refinement_step_s"]))
+    minimum = min(item["distance_km"] for item in audit["pair_minima"].values())
+    return {"full_orbit_audit":audit,"full_orbit_min_altitude_km":min_altitude,
+            "full_orbit_meets_illustrative_threshold":bool(minimum>=threshold),
+            "audit_status":"complete"}
+
+
+def independent_j2(scenario, include_audit=True):
+    """N² собственных оскулирующих орбит и независимое движение с J₂."""
+    if scenario["mode"] != "independent_j2":
+        raise ValueError("Неверный режим для провайдера J₂")
+    from datetime import datetime
+
+    epoch = scenario["epoch_utc"]
+    parsed = datetime.fromisoformat(epoch.replace("Z","+00:00"))
+    if (parsed.tzinfo is None or parsed.utcoffset().total_seconds() != 0
+            or float(scenario["epoch_s"]) != 0):
+        raise ValueError("Нужна общая UTC-эпоха с t=0 с")
+    orbit = dict(scenario["orbit"])
+    re = _positive(orbit["earth_radius_km"],"Радиус Земли")
+    mu = _positive(orbit["mu_km3_s2"],"Гравитационный параметр")
+    j2 = float(orbit["j2"])
+    if not np.isfinite(j2) or not 0 < j2 < 0.01:
+        raise ValueError("Некорректный J₂")
+    _observer(scenario["observer"])
+    theta = float(scenario["angular_side_deg"])
+    if not np.isfinite(theta) or not 1 <= theta <= 20:
+        raise ValueError("Угловая сторона должна быть в пределах 1–20°")
+    size = scenario.get("grid_size",2)
+    grid_indices(size)
+    for key in ("min_neighbor_angle_deg","max_point_error_steps",
+                "max_neighbor_step_error","max_cell_side_error",
+                "max_cell_diagonal_error","max_cell_angle_error_deg"):
+        _positive(scenario["grid_tolerances"][key],key)
+    entries = scenario["elements_at_epoch"]
+    if len(entries) != 4:
+        raise ValueError("Нужны элементы четырёх угловых КА в порядке 0–1–2–3")
+    for k,entry in enumerate(entries):
+        if float(entry["a_km"])*(1-float(entry["e"])) <= re:
+            raise ValueError(f"Перигей КА {k} внутри сферической Земли")
+    corner_initial = np.stack([elements_to_state(entry,mu) for entry in entries])
+    basis_at_epoch = orbital_basis(corner_initial[0:1])
+    observer_at_epoch = observer_eci(np.array([0.]),0,re,scenario["observer"])
+    _,sight,exi,eeta = image_frame(corner_initial[0:1,0],observer_at_epoch,basis_at_epoch)
+    initial,target,all_elements = initial_grid_from_corners(
+        corner_initial,size,observer_at_epoch[0],sight[0],exi[0],eeta[0],theta,mu)
+    if size == 2:
+        all_elements = list(entries)
+    for k,entry in enumerate(all_elements):
+        if float(entry["a_km"])*(1-float(entry["e"])) <= re:
+            raise ValueError(f"Перигей КА {k} внутри сферической Земли")
+    chief_h = np.cross(initial[0,0],initial[0,1])
+    orbit["altitude_km"] = float(np.linalg.norm(initial[0,0])-re)
+    orbit["inclination_deg"] = float(np.rad2deg(np.arccos(
+        np.clip(chief_h[2]/np.linalg.norm(chief_h),-1,1))))
+    if (abs(orbit["altitude_km"]-float(scenario["orbit"]["altitude_km"])) > 1e-6
+            or abs(orbit["inclination_deg"]-float(scenario["orbit"]["inclination_deg"])) > 1e-6):
+        raise ValueError("Высота и наклонение в orbit должны совпадать с элементами КА 0")
+    settings = scenario["integration"]
+    max_step = _positive(settings["max_step_s"],"Шаг интегрирования")
+    audit_step = _positive(settings["full_orbit_sample_step_s"],"Шаг аудита")
+    refine_step = _positive(settings["minimum_refinement_step_s"],"Шаг уточнения")
+    if max_step > 10 or audit_step > 30 or refine_step > 1:
+        raise ValueError("Шаги интегрирования/аудита слишком крупны")
+    time = scenario["time"]
+    start,end,step = map(float,(time["start_s"],time["end_s"],time["step_s"]))
+    if not (np.isfinite([start,end,step]).all() and start < 0 < end and step > 0
+            and (end-start)/step <= 20000):
+        raise ValueError("Неверное окно показываемого пролёта")
+    t = np.arange(start,end+step*0.5,step)
+    t = t[t<=end+1e-8]
+    if not np.any(np.isclose(t,0,atol=1e-8)):
+        raise ValueError("Временная сетка должна содержать общую эпоху t=0")
+    t[np.argmin(abs(t))] = 0
+    display = integrate(initial,t,mu,re,j2,max_step)
+    period = 2*np.pi*np.sqrt(float(entries[0]["a_km"])**3/mu)
+    line_t = np.linspace(0,period,361)
+    orbit_line = integrate(initial[0:1],line_t,mu,re,j2,max_step)[:,0,0]
+    threshold = _positive(scenario["safety"]["illustrative_min_separation_km"],"Порог сближения")
+    basis = orbital_basis(display[:,0])
+    robs = observer_eci(t,0,re,scenario["observer"])
+    accel = np.zeros((len(t)-1,size*size,3))  # гравитационное J₂ не является тягой
+    warning = (f"{size*size} независимых абсолютных орбит с J₂ без тяги. "
+               "Порог расстояния иллюстративный; долгосрочная безопасность не установлена.")
+    metadata = _metadata(scenario,"Нелинейная абсолютная модель J₂",orbit,warning,0)
+    metadata.update({
+        "angular_side_deg":theta,"variant":"independent_j2",
+        "epoch_utc":epoch,"orbital_elements":all_elements,
+        "grid_size":size,"grid_indices":grid_indices(size).tolist(),
+        "grid_tolerances":scenario["grid_tolerances"],
+        "initial_epoch_s":0.0,"initial_choice":"собственные оскулирующие элементы на общей UTC-эпохе",
+        "safety_horizon":"один номинальный виток опорного КА от общей эпохи",
+        "audit_status":"pending",
+    })
+    b0 = orbital_basis(initial[0:1])
+    relative = initial[:,0]-initial[0,0]
+    relative_oso = (b0[0].T@relative.T).T
+    h = np.cross(initial[0,0],initial[0,1])
+    angular_rate = h/np.dot(initial[0,0],initial[0,0])
+    relative_velocity_eci = initial[:,1]-initial[0,1]-np.cross(angular_rate,relative)
+    velocity_oso = (b0[0].T@relative_velocity_eci.T).T
+    obs0 = observer_eci(np.array([0.]),0,re,scenario["observer"])[0]
+    metadata["initial_rho_oso_km"] = relative_oso[1:]
+    metadata["initial_vel_oso_m_s"] = velocity_oso[1:]*1000
+    metadata["initial_lambda_km"] = np.linalg.norm(initial[1:,0]-obs0,axis=1)
+    result = assemble_absolute(t,display[:,:,0],basis,robs,accel,target,orbit,
+                               metadata,orbit_line,period)
+    if include_audit:
+        result.metadata.update(audit_independent_grid(scenario,all_elements))
+    return result
+
+
 def legacy_replay(scenario):
     if scenario["mode"] != "legacy_replay":
         raise ValueError("Неверный режим для исторического провайдера")
@@ -258,8 +392,11 @@ def legacy_replay(scenario):
     return assemble(t,rho,accel,target,orbit,scenario["observer"],zenith,metadata)
 
 
-PROVIDERS = {"free_hcw_two_body": free_hcw_two_body, "legacy_replay": legacy_replay}
+PROVIDERS = {"free_hcw_two_body": free_hcw_two_body,
+             "independent_j2": independent_j2, "legacy_replay": legacy_replay}
 
 
-def calculate(scenario):
+def calculate(scenario, include_audit=True):
+    if scenario["mode"] == "independent_j2":
+        return independent_j2(scenario,include_audit=include_audit)
     return PROVIDERS[scenario["mode"]](scenario)

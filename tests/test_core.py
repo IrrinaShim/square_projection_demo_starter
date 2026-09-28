@@ -3,6 +3,8 @@ import unittest
 import numpy as np
 
 from square_demo.core import hcw_free, hcw_transition
+from square_demo.orbit_j2 import elements_to_state, state_to_elements, acceleration_j2
+from square_demo.grid import corner_indices, grid_indices
 from square_demo.providers import SCENARIOS, calculate, calculate_free_variants, load_scenario
 
 
@@ -86,6 +88,72 @@ class CalculationTests(unittest.TestCase):
         self.assertEqual(r.metadata["zenith_s"],600)
         self.assertIsNone(r.metadata["initial_lambda_km"])
         self.assertTrue(np.isfinite(r.metadata["reference_period_s"]))
+
+    def test_independent_j2_elements_projection_and_full_orbit_audit(self):
+        scenario = load_scenario(SCENARIOS["independent_j2"])
+        mu = scenario["orbit"]["mu_km3_s2"]
+        for element in scenario["elements_at_epoch"]:
+            state = elements_to_state(element,mu)
+            recovered = elements_to_state(state_to_elements(*state,mu),mu)
+            np.testing.assert_allclose(recovered,state,atol=1e-8)
+        result = calculate(scenario)
+        zero = int(np.argmin(abs(result.t_s)))
+        np.testing.assert_allclose(result.image_gnomonic[zero],
+                                   result.target_image_gnomonic,atol=1e-12)
+        self.assertTrue(result.metadata["observability"]["eligible"][zero])
+        self.assertEqual(result.metadata["quality"]["zenith_contiguous_duration_s"],425)
+        self.assertTrue(np.array_equal(result.accel_oso_m_s2,np.zeros_like(result.accel_oso_m_s2)))
+        self.assertTrue(np.array_equal(result.dv_cumulative_m_s,np.zeros_like(result.dv_cumulative_m_s)))
+        audit = result.metadata["full_orbit_audit"]
+        self.assertEqual(set(audit["pair_minima"]),{"0-1","0-2","0-3","1-2","1-3","2-3"})
+        self.assertEqual(set(audit["high_latitude_sample_minima"]),set(audit["pair_minima"]))
+        self.assertGreater(audit["max_abs_chief_latitude_deg"],80)
+        self.assertLess(audit["pair_minima"]["0-3"]["distance_km"],10)
+        self.assertGreater(min(item["distance_km"] for item in audit["pair_minima"].values()),1)
+        self.assertEqual(audit["dangerous_events"],[])
+        self.assertTrue(result.metadata["full_orbit_meets_illustrative_threshold"])
+        position = result.r_eci_km[zero,0]
+        j2 = scenario["orbit"]["j2"]
+        re = scenario["orbit"]["earth_radius_km"]
+        self.assertGreater(np.linalg.norm(acceleration_j2(position,mu,re,j2)
+                                          -acceleration_j2(position,mu,re,0)),1e-6)
+
+    def test_grid_3_independent_states_and_danger_detection(self):
+        self.assertEqual(grid_indices(2).tolist(),[[0,1],[3,2]])
+        self.assertEqual(corner_indices(2).tolist(),[0,1,2,3])
+        scenario = load_scenario(SCENARIOS["independent_j2"])
+        scenario["grid_size"] = 3
+        scenario["safety"]["illustrative_min_separation_km"] = 5
+        result = calculate(scenario)
+        self.assertEqual(result.r_eci_km.shape,(181,9,3))
+        self.assertEqual(result.metadata["grid_indices"],[[0,1,2],[5,4,3],[6,7,8]])
+        self.assertEqual(result.metadata["corner_indices"],[0,2,8,6])
+        self.assertEqual(len(result.metadata["orbital_elements"]),9)
+        np.testing.assert_allclose(result.image_gnomonic[90],result.target_image_gnomonic,atol=1e-12)
+        self.assertEqual(result.metadata["full_orbit_audit"]["pair_count"],36)
+        self.assertGreater(result.metadata["full_orbit_audit"]["max_abs_chief_latitude_deg"],80)
+        self.assertTrue(any(event["pair"]=="5-6" and event["method"]=="J2 refined"
+                            for event in result.metadata["full_orbit_audit"]["dangerous_events"]))
+        self.assertFalse(result.metadata["full_orbit_meets_illustrative_threshold"])
+        self.assertTrue(np.all(result.accel_oso_m_s2==0))
+
+    def test_grid_10_all_pairs_and_no_false_acceptance_at_two_degrees(self):
+        scenario = load_scenario(SCENARIOS["independent_j2"])
+        scenario["grid_size"] = 10
+        scenario["grid_tolerances"]["min_neighbor_angle_deg"] = 2
+        result = calculate(scenario)
+        self.assertEqual(result.r_eci_km.shape,(181,100,3))
+        self.assertEqual(result.image_gnomonic.shape,(181,100,2))
+        self.assertEqual(result.target_yoz_km.shape,(100,2))
+        self.assertEqual(len(result.metadata["orbital_elements"]),100)
+        self.assertEqual(result.metadata["full_orbit_audit"]["pair_count"],4950)
+        self.assertEqual(result.metadata["quality"]["zenith_contiguous_duration_s"],0)
+        self.assertEqual(result.metadata["quality"]["accepted_nodes"],0)
+        self.assertFalse(result.metadata["quality"]["has_positive_duration_interval"])
+        zero = int(np.argmin(abs(result.t_s)))
+        self.assertLess(abs(result.metadata["observability"]["size_deviation_percent"][zero]),1e-8)
+        self.assertIn("истинный угловой шаг",result.metadata["observability"]["reasons"][zero])
+        self.assertTrue(np.all(result.accel_oso_m_s2==0))
 
 
 if __name__ == "__main__":

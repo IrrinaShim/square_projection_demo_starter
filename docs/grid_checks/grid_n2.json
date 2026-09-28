@@ -1,0 +1,298 @@
+{
+  "scenario_id": "four_osculating_orbits_j2_pass",
+  "model": "independent osculating orbits, nonlinear J2, zero thrust",
+  "epoch_utc": "2026-09-28T00:00:00Z",
+  "grid_size": 2,
+  "satellite_count": 4,
+  "index_map_rows_bottom_to_top": [
+    [
+      0,
+      1
+    ],
+    [
+      3,
+      2
+    ]
+  ],
+  "corner_indices": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "angular_side_deg": 1.8183029644518331,
+  "orbit_constants": {
+    "earth_radius_km": 6371.0,
+    "mu_km3_s2": 398600.4,
+    "j2": 0.00108262668,
+    "altitude_km": 630.0,
+    "inclination_deg": 97.8
+  },
+  "observer": {
+    "latitude_deg": 25.3026,
+    "longitude_deg": 51.5132,
+    "earth_rotation_rad_s": 7.292115e-05,
+    "greenwich_angle_at_zenith_deg": 0.0
+  },
+  "time": {
+    "start_s": -450.0,
+    "end_s": 450.0,
+    "step_s": 5.0
+  },
+  "integration": {
+    "max_step_s": 2.0,
+    "full_orbit_sample_step_s": 5.0,
+    "minimum_refinement_step_s": 0.1
+  },
+  "visibility": {
+    "min_elevation_deg": 15.0,
+    "max_side_error": 0.1,
+    "max_diagonal_error": 0.1,
+    "max_angle_error_deg": 10.0
+  },
+  "grid_tolerances": {
+    "min_neighbor_angle_deg": 0.1,
+    "max_point_error_steps": 0.1,
+    "max_neighbor_step_error": 0.1,
+    "max_cell_side_error": 0.1,
+    "max_cell_diagonal_error": 0.1,
+    "max_cell_angle_error_deg": 10.0
+  },
+  "elements_at_epoch": [
+    {
+      "a_km": 7001.0,
+      "e": 0.0,
+      "inclination_deg": 97.8,
+      "raan_deg": 55.226224550333264,
+      "arg_perigee_deg": 0.0,
+      "true_anomaly_deg": 25.55581683149022
+    },
+    {
+      "a_km": 6999.513399782704,
+      "e": 0.005588439172387099,
+      "inclination_deg": 97.79917455338915,
+      "raan_deg": 55.225823232229615,
+      "arg_perigee_deg": 118.02218670907304,
+      "true_anomaly_deg": 267.6972158188421
+    },
+    {
+      "a_km": 6997.834906393122,
+      "e": 0.006219012846158065,
+      "inclination_deg": 97.87728520801498,
+      "raan_deg": 55.08045321751226,
+      "arg_perigee_deg": 120.09288722493092,
+      "true_anomaly_deg": 265.60669984971656
+    },
+    {
+      "a_km": 6999.423776232544,
+      "e": 0.0006592847893352296,
+      "inclination_deg": 97.87059319278481,
+      "raan_deg": 55.07715059365311,
+      "arg_perigee_deg": 136.40329896054158,
+      "true_anomaly_deg": 249.13219522631357
+    }
+  ],
+  "display": {
+    "array_shape": [
+      181,
+      4,
+      3
+    ],
+    "max_initial_projection_error_gnomonic": 6.404599073306372e-15,
+    "quality": {
+      "zenith_contiguous_duration_s": 425.0,
+      "zenith_interval_s": [
+        -215.0,
+        210.0
+      ],
+      "longest_contiguous_duration_s": 425.0,
+      "longest_interval_s": [
+        -215.0,
+        210.0
+      ],
+      "has_positive_duration_interval": true,
+      "accepted_nodes": 86,
+      "max_side_error": 0.24435830166913441,
+      "max_diagonal_error": 0.08285424910622648,
+      "max_angle_error_deg": 5.580543057261911,
+      "side_range_gnomonic": [
+        0.0052965353212301005,
+        0.03174603174603361
+      ],
+      "diagonal_range_gnomonic": [
+        0.009785290676603125,
+        0.04489566864676132
+      ],
+      "angle_range_deg": [
+        84.4402703904294,
+        95.5805430572619
+      ],
+      "min_elevation_deg": -3.9136144948004046,
+      "min_pair_distance_km": 17.451002128170156,
+      "all_image_valid": true,
+      "max_point_error_steps": 0.17361073290013732,
+      "max_neighbor_step_error": 0.24435830166913441,
+      "max_cell_side_error": 0.24435830166913441,
+      "max_cell_diagonal_error": 0.08285424910622648,
+      "max_cell_angle_error_deg": 5.580543057261911,
+      "min_true_neighbor_angle_deg": 0.3034534632872408
+    },
+    "zero_applied_thrust": true,
+    "max_grid_point_error_steps": 0.17361073290013732,
+    "max_neighbor_step_error": 0.24435830166913441,
+    "max_cell_side_error": 0.24435830166913441,
+    "max_cell_diagonal_error": 0.08285424910622648,
+    "max_cell_angle_error_deg": 5.580543057261911,
+    "min_true_neighbor_angle_deg": 0.3034534632872408,
+    "first_failure_reason": "угол места -3.40° ниже 15°; εb=0.2444 > 0.1"
+  },
+  "angle_threshold_examples_deg": {
+    "1": {
+      "accepted_nodes": 42,
+      "interval_around_epoch_s": [
+        -105.0,
+        100.0
+      ],
+      "duration_s": 205.0,
+      "longest_interval_s": [
+        -105.0,
+        100.0
+      ],
+      "has_positive_duration_interval": true
+    },
+    "2": {
+      "accepted_nodes": 0,
+      "interval_around_epoch_s": null,
+      "duration_s": 0.0,
+      "longest_interval_s": null,
+      "has_positive_duration_interval": false
+    }
+  },
+  "full_orbit": {
+    "status": "complete",
+    "nominal_period_s": 5829.765955816683,
+    "min_altitude_km": 583.5765774467027,
+    "closest_pair": {
+      "pair": "0-3",
+      "t_s": 1260.3419272045726,
+      "utc": "2026-09-28T00:21:00.341927Z",
+      "distance_km": 9.70432534973047,
+      "latitude_deg": 74.54579338959601,
+      "longitude_deg": -100.20839614668938
+    },
+    "audit": {
+      "horizon_s": [
+        0.0,
+        5829.765955816683
+      ],
+      "status": "complete",
+      "pair_count": 6,
+      "sample_step_max_s": 4.999799276000886,
+      "refinement_step_max_s": 0.1,
+      "threshold_km": 1.0,
+      "max_abs_chief_latitude_deg": 82.19149785498261,
+      "high_latitude_definition_deg": 60.0,
+      "pair_minima": {
+        "0-1": {
+          "pair": "0-1",
+          "t_s": 2.2902926640829913,
+          "utc": "2026-09-28T00:00:02.290293Z",
+          "distance_km": 19.99504844228609,
+          "latitude_deg": 25.523309630562796,
+          "longitude_deg": 51.466495311445186
+        },
+        "0-2": {
+          "pair": "0-2",
+          "t_s": 3.1086020431119303,
+          "utc": "2026-09-28T00:00:03.108602Z",
+          "distance_km": 28.276991594862878,
+          "latitude_deg": 25.560914440842737,
+          "longitude_deg": 51.36497685551018
+        },
+        "0-3": {
+          "pair": "0-3",
+          "t_s": 1260.3419272045726,
+          "utc": "2026-09-28T00:21:00.341927Z",
+          "distance_km": 9.70432534973047,
+          "latitude_deg": 74.54579338959601,
+          "longitude_deg": -100.20839614668938
+        },
+        "1-2": {
+          "pair": "1-2",
+          "t_s": 1280.3242808239265,
+          "utc": "2026-09-28T00:21:20.324281Z",
+          "distance_km": 10.194464306054844,
+          "latitude_deg": 72.86596691071946,
+          "longitude_deg": -103.62446765230399
+        },
+        "1-3": {
+          "pair": "1-3",
+          "t_s": 5818.013884384982,
+          "utc": "2026-09-28T01:36:58.013884Z",
+          "distance_km": 27.309319462228192,
+          "latitude_deg": 24.76776816589424,
+          "longitude_deg": 27.269564056153143
+        },
+        "2-3": {
+          "pair": "2-3",
+          "t_s": 2.0528234347553367,
+          "utc": "2026-09-28T00:00:02.052823Z",
+          "distance_km": 19.99555777468837,
+          "latitude_deg": 25.48407604009396,
+          "longitude_deg": 51.29068200156263
+        }
+      },
+      "high_latitude_sample_minima": {
+        "0-1": {
+          "pair": "0-1",
+          "t_s": 574.9769167400674,
+          "utc": "2026-09-28T00:09:34.976917Z",
+          "distance_km": 41.33049701188084,
+          "latitude_deg": 60.240318823553544,
+          "longitude_deg": 38.95804534227227
+        },
+        "0-2": {
+          "pair": "0-2",
+          "t_s": 574.9769167400674,
+          "utc": "2026-09-28T00:09:34.976917Z",
+          "distance_km": 46.99196231911957,
+          "latitude_deg": 60.22612563564868,
+          "longitude_deg": 38.82230861466175
+        },
+        "0-3": {
+          "pair": "0-3",
+          "t_s": 1259.9494175521477,
+          "utc": "2026-09-28T00:20:59.949418Z",
+          "distance_km": 9.704329820107873,
+          "latitude_deg": 74.56660308411519,
+          "longitude_deg": -100.16012140518468
+        },
+        "1-2": {
+          "pair": "1-2",
+          "t_s": 1279.94861465615,
+          "utc": "2026-09-28T00:21:19.948615Z",
+          "distance_km": 10.194468258190314,
+          "latitude_deg": 72.88674954413375,
+          "longitude_deg": -103.58596279595181
+        },
+        "1-3": {
+          "pair": "1-3",
+          "t_s": 574.9769167400674,
+          "utc": "2026-09-28T00:09:34.976917Z",
+          "distance_km": 42.13493769151015,
+          "latitude_deg": 60.22666846391571,
+          "longitude_deg": 38.82610128752651
+        },
+        "2-3": {
+          "pair": "2-3",
+          "t_s": 574.9769167400674,
+          "utc": "2026-09-28T00:09:34.976917Z",
+          "distance_km": 41.369456325261574,
+          "latitude_deg": 60.21233504527996,
+          "longitude_deg": 38.69042557399172
+        }
+      },
+      "dangerous_events": []
+    }
+  }
+}
