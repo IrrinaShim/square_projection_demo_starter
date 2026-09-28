@@ -1,0 +1,52 @@
+{
+  "8": {
+    "coarse": {
+      "pair": "42-43",
+      "t_s": 14500.613234735276,
+      "utc": "2026-09-28T04:01:40.613235Z",
+      "distance_km": 1.0192569530025157,
+      "latitude_deg": -17.37084011289395,
+      "longitude_deg": 170.84350805676195,
+      "method": "J2 refined global minimum"
+    },
+    "fine": {
+      "pair": "42-43",
+      "t_s": 14500.613228618473,
+      "utc": "2026-09-28T04:01:40.613229Z",
+      "distance_km": 1.0192567750397241,
+      "latitude_deg": -17.370839450992154,
+      "longitude_deg": 170.84350819165405,
+      "method": "J2 refined global minimum"
+    },
+    "difference_km": -1.7796279161430562e-07,
+    "difference_s": -6.116802978795022e-06,
+    "fine_pair_count": 2016,
+    "sample_s": 30,
+    "integration_step_s": 5
+  },
+  "9": {
+    "coarse": {
+      "pair": "32-33",
+      "t_s": 53172.637130457755,
+      "utc": "2026-09-28T14:46:12.637130Z",
+      "distance_km": 0.00660000043215596,
+      "latitude_deg": 26.406654593470645,
+      "longitude_deg": -172.45991753154848,
+      "method": "J2 refined global minimum"
+    },
+    "fine": {
+      "pair": "32-33",
+      "t_s": 53172.637113947385,
+      "utc": "2026-09-28T14:46:12.637114Z",
+      "distance_km": 0.006599986058538669,
+      "latitude_deg": 26.40665257652401,
+      "longitude_deg": -172.4599189629164,
+      "method": "J2 refined global minimum"
+    },
+    "difference_km": -1.4373617291188467e-08,
+    "difference_s": -1.6510370187461376e-05,
+    "fine_pair_count": 3240,
+    "sample_s": 30,
+    "integration_step_s": 5
+  }
+}

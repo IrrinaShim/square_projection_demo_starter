@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "source_scenario": "scenarios/independent_j2_4sat.json",
+  "sizes": [2, 3, 4, 5, 6, 7, 8, 9, 10],
+  "heights_km": [500, 600, 630, 700],
+  "outer_side_deg": [2, 5, 10, 20],
+  "survey_candidate_budget_per_size": 27,
+  "survey_sample_s": 10,
+  "detailed_horizon_base_days": 30,
+  "detailed_horizon_budget_days_by_size": {
+    "2": 30, "3": 30, "4": 30, "5": 1, "6": 30,
+    "7": 1, "8": 1, "9": 1, "10": 1
+  },
+  "detailed_sample_s": 60,
+  "detailed_integration_step_s": 10,
+  "detailed_pass_step_s": 5,
+  "collision_radius_sum_km": 0.02,
+  "additional_safety_margin_km": 1.0,
+  "minimum_model_altitude_km": 300.0,
+  "resolution_thresholds_deg": [1, 2],
+  "selection_rule": "2 deg if any positive survey interval, else 1 deg; maximize duration times minimum outer side on survey; tie by duration. Detailed results can reject selection. No global optimality claim."
+}
