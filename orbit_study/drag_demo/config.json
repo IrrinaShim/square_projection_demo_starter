@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "model_id": "passive-central-J2-exponential-drag-v1",
+  "epoch_utc": "2026-09-28T00:00:00Z",
+  "frame": "approximate mean-equator/equinox-of-date ECI; GMST from UTC≈UT1; no precession-nutation/polar motion transformation",
+  "orbit": {"earth_radius_km": 6371.0, "mu_km3_s2": 398600.4, "j2": 0.00108262668, "altitude_km": 700.0, "inclination_deg": 97.8},
+  "observer": {"latitude_deg": 25.3026, "longitude_deg": 51.5132, "earth_rotation_rad_s": 7.292115e-5, "greenwich_angle_at_zenith_deg": 6.785648977383971},
+  "visibility": {"min_elevation_deg": 15.0, "max_side_error": 0.1, "max_diagonal_error": 0.1, "max_angle_error_deg": 10.0},
+  "grid_tolerances": {"min_neighbor_angle_deg": 2.0, "max_point_error_steps": 0.1, "max_neighbor_step_error": 0.1, "max_cell_side_error": 0.1, "max_cell_diagonal_error": 0.1, "max_cell_angle_error_deg": 10.0},
+  "spacecraft": {"form_factor": "16U illustrative", "mass_kg": 22.0, "body_dimensions_m": [0.454, 0.2463, 0.2463], "effective_area_m2": 0.1118202, "drag_coefficient": 2.2, "attitude": "fixed broadside normal to instantaneous atmosphere-relative velocity; idealized", "collision_radius_sum_km": 0.02, "additional_safety_margin_km": 1.0, "mass_source_status": "22 kg from other 16U missions; unverified for this formation"},
+  "atmosphere": {"name": "single-scale-height exponential research approximation", "reference_altitude_km": 700.0, "rho_reference_kg_m3": 4.6e-13, "scale_height_km": 97.0, "documented_range_km": [500.0, 1200.0], "source": "NASA NTRS 19650024643, Table 10 near solar maximum; 700 km: 4.6e-16 g/cm3, H=97 km", "space_weather": "fixed near-solar-maximum reference; no F10.7/Ap forecast"},
+  "display": {"start_s": -450.0, "end_s": 450.0, "step_s": 5.0, "integration_step_s": 2.0},
+  "search": {"depth_factors": [0.0], "range_rate_factors": [0.85, 0.9, 0.95, 1.0], "warp_factors": [0.03, 0.035, 0.04], "survey_step_s": 5.0, "audit_step_s": 1.0, "refinement_step_s": 0.1, "minimum_altitude_km": 500.0}
+}

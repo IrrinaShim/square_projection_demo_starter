@@ -1,0 +1,24 @@
+{
+  "N": 2,
+  "source": "historical 4-satellite CSV, not a J2+drag trajectory",
+  "frame": "conditional Greenwich=0 at assigned zenith; UTC epoch absent",
+  "applied_acceleration_max_m_s2": 0.023187790247429698,
+  "declared_mass_kg": 22.0,
+  "declared_thrust_limit_N": 1.0,
+  "thrust_implied_max_N": 0.5101313854434534,
+  "max_delta_v_m_s": 20.752053763540978,
+  "declared_engine_hardware_verified": false,
+  "target_outer_side_deg": 1.8183029644518331,
+  "reconstructed_projection_interval_s": [
+    540.0,
+    660.0
+  ],
+  "reconstructed_projection_duration_s": 120.0,
+  "compatible_with_passive_drag_study": false,
+  "reasons": [
+    "нет UTC эпохи и согласованной земной ориентации",
+    "исторический CSV не распространён с моделью J2+сопротивление",
+    "Fmax, масса и характеристики двигателя из внутреннего config.json не подтверждены для реальной платформы 16U",
+    "внешняя сторона исторического случая не равна 20°"
+  ]
+}

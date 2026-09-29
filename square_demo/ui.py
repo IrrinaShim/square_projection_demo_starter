@@ -1,7 +1,6 @@
 """Окно одного пролёта: готовая геометрия и траектории из расчётного слоя."""
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor
 import json
 from pathlib import Path
 
@@ -16,9 +15,8 @@ from PySide6.QtWidgets import (QApplication, QComboBox, QDoubleSpinBox, QFileDia
     QSlider, QSpinBox, QSplitter, QTableWidget, QTableWidgetItem, QToolButton,
     QVBoxLayout, QWidget)
 
-from .providers import calculate
-from .study import CandidateUnavailable, load_study_case, study_status
-from orbit_study.user_run import run_selected_case
+from .drag_provider import calculate_drag_case
+from .drag_study import load_or_search
 
 
 class Plot(FigureCanvasQTAgg):
@@ -76,14 +74,10 @@ class DemoWindow(QMainWindow):
         self.scenario=None
         self.study_record=None
         self.study_data=None
+        self.window_model_valid=False
         self.timer=QTimer(self)
         self.timer.setInterval(110)
         self.timer.timeout.connect(self.advance)
-        self.analysis_executor=ThreadPoolExecutor(max_workers=1)
-        self.analysis_future=None
-        self.analysis_timer=QTimer(self)
-        self.analysis_timer.setInterval(200)
-        self.analysis_timer.timeout.connect(self._poll_long_analysis)
         central=QWidget()
         self.setCentralWidget(central)
         root=QVBoxLayout(central)
@@ -123,16 +117,22 @@ class DemoWindow(QMainWindow):
         groups.addWidget(config,2)
         observer=QGroupBox("Наблюдатель")
         of=QFormLayout(observer)
-        self.observer_location=QLabel("—")
-        self.min_elevation=QLabel("—")
-        of.addRow("Широта / долгота",self.observer_location)
-        of.addRow("Мин. угол места",self.min_elevation)
+        self.observer_lat=QDoubleSpinBox(); self.observer_lat.setRange(-90,90); self.observer_lat.setDecimals(4); self.observer_lat.setValue(25.3026)
+        self.observer_lon=QDoubleSpinBox(); self.observer_lon.setRange(-180,180); self.observer_lon.setDecimals(4); self.observer_lon.setValue(51.5132)
+        self.elevation_limit=QDoubleSpinBox(); self.elevation_limit.setRange(0,90); self.elevation_limit.setValue(15); self.elevation_limit.setSuffix(" °")
+        of.addRow("Широта, °",self.observer_lat)
+        of.addRow("Долгота, °",self.observer_lon)
+        of.addRow("Мин. угол места",self.elevation_limit)
         groups.addWidget(observer,2)
         orbit=QGroupBox("Орбита")
         orb=QFormLayout(orbit)
+        self.orbit_height=QDoubleSpinBox(); self.orbit_height.setRange(500,700); self.orbit_height.setValue(700); self.orbit_height.setSuffix(" км")
+        self.orbit_inclination=QDoubleSpinBox(); self.orbit_inclination.setRange(0,180); self.orbit_inclination.setDecimals(3); self.orbit_inclination.setValue(97.8); self.orbit_inclination.setSuffix(" °")
         self.orbit_parameters=QLabel("—")
         self.epoch=QLabel("—")
-        orb.addRow("Опорный КА 0",self.orbit_parameters)
+        orb.addRow("Высота КА 0",self.orbit_height)
+        orb.addRow("Наклонение КА 0",self.orbit_inclination)
+        orb.addRow("Период КА 0",self.orbit_parameters)
         orb.addRow("Общая эпоха",self.epoch)
         groups.addWidget(orbit,2)
         model=QGroupBox("Модель")
@@ -154,6 +154,9 @@ class DemoWindow(QMainWindow):
         self.angular_side.valueChanged.connect(self.calculate_current)
         self.resolution.currentIndexChanged.connect(self.calculate_current)
         self.mode.currentIndexChanged.connect(self.calculate_current)
+        for widget in (self.observer_lat,self.observer_lon,self.elevation_limit,
+                       self.orbit_height,self.orbit_inclination):
+            widget.valueChanged.connect(self.calculate_current)
 
         self.status=QLabel()
         self.status.setWordWrap(True)
@@ -175,7 +178,7 @@ class DemoWindow(QMainWindow):
         self.long_horizon.setDecimals(2)
         self.long_horizon.setValue(1.)
         technical.addWidget(self.long_horizon)
-        self.long_button=QPushButton("Рассчитать и сохранить")
+        self.long_button=QPushButton("Проверить возможность анализа")
         self.long_button.clicked.connect(self._choose_long_analysis_dir)
         technical.addWidget(self.long_button)
         self.elements_table=QTableWidget(0,7)
@@ -205,7 +208,7 @@ class DemoWindow(QMainWindow):
         self.time_slider=QSlider(Qt.Orientation.Horizontal)
         self.time_slider.valueChanged.connect(self.update_frame)
         self.timeline=ObservableTimeline()
-        self.timeline.setToolTip("Зелёные участки: вся сетка удовлетворяет условиям")
+        self.timeline.setToolTip("Зелёные участки: сетка удовлетворяет условиям, и модель плотности применима на всём показанном окне")
         time_column=QVBoxLayout()
         time_column.setSpacing(0)
         time_column.addWidget(self.time_slider)
@@ -245,6 +248,7 @@ class DemoWindow(QMainWindow):
         self.scenario=None
         self.study_record=None
         self.study_data=None
+        self.window_model_valid=False
         self.timeline.set_result(None,None)
         self.status.setText(message)
         self.status.setStyleSheet("background:#ffe3df;color:#8b241d;padding:5px;")
@@ -260,10 +264,8 @@ class DemoWindow(QMainWindow):
         self.long_button.setEnabled(False)
         self.time_slider.setEnabled(False)
         self.play_button.setEnabled(False)
-        self.orbit_parameters.setText("Нет выбранной орбиты")
+        self.orbit_parameters.setText("—")
         self.epoch.setText("—")
-        self.observer_location.setText("—")
-        self.min_elevation.setText("—")
         self.model_details.clear()
         for canvas in (self.proj,self.yoz,self.space):
             canvas.axes.clear()
@@ -274,42 +276,54 @@ class DemoWindow(QMainWindow):
         side=self.angular_side.value()
         if self.mode.currentData()=="controlled":
             self.model_summary.setText("Расчёт управления для выбранной сетки пока не подготовлен")
-            self._clear_result(f"С управлением: для N={size}, внешней стороны {side:g}° совместимого рассчитанного случая нет. Историческая траектория не является подобранной наблюдаемой сеткой.")
+            reason=("исторический случай 4 КА имеет внешнюю сторону 1,8183°, фактически приложенную тягу до 0,510 Н при принятой массе 22 кг, но не имеет согласованной UTC-эпохи, модели J₂+сопротивление и подтверждённого двигателя 16U"
+                    if size==2 else "для N>2 рассчитанных данных управления нет")
+            self._clear_result(f"С управлением: для N={size}, внешней стороны {side:g}° проверенного решения нет; {reason}.")
             return
-        self.model_summary.setText("Каждый КА: собственная орбита; центральная гравитация + J₂; тяга отсутствует")
+        self.model_summary.setText("Каждый КА: собственная орбита; центральное поле + J₂ + атмосферное сопротивление; тяга отсутствует")
         try:
-            scenario,record,data=load_study_case(size,float(self.resolution.currentData()),
-                                                   outer_side_deg=side)
-            result=calculate(scenario,include_audit=False)
-            key=str(int(self.resolution.currentData()))
-            saved=record["verification"]["repeat"][key]["best_pass"]
-            actual=result.metadata["quality"]["longest_contiguous_duration_s"]
-            if abs(actual-(saved["duration_s"] if saved else 0))>scenario["time"]["step_s"]+1e-6:
-                raise ValueError("Сохранённый и текущий расчёты пролёта расходятся")
-        except (CandidateUnavailable,ValueError,OSError,KeyError) as exc:
+            scenario,candidate,audit,source=load_or_search(size,side,
+                float(self.resolution.currentData()),self.observer_lat.value(),
+                self.observer_lon.value(),self.elevation_limit.value(),
+                self.orbit_height.value(),self.orbit_inclination.value())
+            result=calculate_drag_case(scenario,candidate)
+            if ("saved_duration_s" in audit and self.resolution.currentData()==2.
+                    and abs(result.metadata["quality"]["longest_contiguous_duration_s"]
+                            -audit["saved_duration_s"])>1e-8):
+                raise ValueError("Повторный пролёт не совпадает с сохранённой проверкой")
+        except (ValueError,OSError,KeyError) as exc:
             self._clear_result(str(exc))
             return
         self.timer.stop()
         self.play_button.setText("Пуск")
-        self.scenario,self.study_record,self.study_data=scenario,record,data
+        self.scenario,self.study_record,self.study_data=scenario,audit,candidate
         self.result=result
         self.time_slider.setEnabled(True)
         self.play_button.setEnabled(True)
         self.elements_button.setEnabled(True)
         self.export_button.setEnabled(True)
-        self.long_button.setEnabled(self.analysis_future is None)
-        audit=record["verification"]
-        state=study_status(record,float(self.resolution.currentData()),data["search_config"])
-        reasons="; ".join(record["unmet_constraints"]) or "нет зафиксированных нарушений"
-        self.status.setText(f"N={size}, внешняя сторона цели {side:g}°: {state}. Проверено {audit['horizon_days']:g} сут.; подходящих пролётов при шаге ≥{key}°: {audit['repeat'][key]['qualifying_passes']}. Ограничения: {reasons}.")
-        self.status.setStyleSheet("background:#d9f4e3;color:#145b32;padding:5px;" if state=="требования выполнены" else "background:#fff0d9;color:#805015;padding:5px;" if state=="выполнены частично" else "background:#ffe3df;color:#8b241d;padding:5px;")
+        self.long_button.setEnabled(True)
+        duration=result.metadata["quality"]["longest_contiguous_duration_s"]
+        safe=audit["closest_pair"]["distance_km"]>=audit["threshold_km"]
+        density_range=scenario["atmosphere"]["documented_range_km"]
+        model_valid=(audit["minimum_altitude_km"]>=density_range[0] and
+                     audit["maximum_altitude_km"]<=density_range[1])
+        self.window_model_valid=model_valid
+        accepted=duration>0 and safe and model_valid
+        state="выполнены частично: один пролёт" if accepted else "проверенного подходящего интервала нет"
+        problems=[]
+        if duration<=0: problems.append("не выполнены видимость, форма или шаг всей сетки")
+        if not safe: problems.append("порог сближения нарушен")
+        if not model_valid: problems.append(f"высота {audit['minimum_altitude_km']:.0f}…{audit['maximum_altitude_km']:.0f} км выходит за область плотности {density_range[0]:g}…{density_range[1]:g} км")
+        problem_text=(" Нарушения: "+"; ".join(problems)+"." if problems else "")
+        self.status.setText(f"N={size}, внешняя сторона {side:g}°: {state}; {source}. Подходящий геометрический интервал {duration:g} с; минимум всех {audit['pair_count']} пар {audit['closest_pair']['distance_km']:.3f} км.{problem_text} Многосуточная повторяемость не проверена.")
+        self.status.setStyleSheet("background:#fff0d9;color:#805015;padding:5px;" if accepted else "background:#ffe3df;color:#8b241d;padding:5px;")
         observer=scenario["observer"]
         orbit=scenario["orbit"]
-        self.observer_location.setText(f"{observer['latitude_deg']:.4f}° / {observer['longitude_deg']:.4f}°")
-        self.min_elevation.setText(f"≥{scenario['visibility']['min_elevation_deg']:g}°")
-        self.orbit_parameters.setText(f"h₀={orbit['altitude_km']:g} км; i₀={orbit['inclination_deg']:g}°; T₀={result.metadata['reference_period_s']:.1f} с")
+        self.orbit_parameters.setText(f"{result.metadata['reference_period_s']:.1f} с")
         self.epoch.setText(scenario["epoch_utc"])
-        self.model_details.setText(f"Условная ECI: Z вдоль оси Земли, Гринвич=0° на эпохе. Rₑ={orbit['earth_radius_km']:g} км; μ={orbit['mu_km3_s2']:g} км³/с²; J₂={orbit['j2']:.11f}. Сферическая вращающаяся Земля. Локальное начало — среднее положение {size*size} КА; оси ориентированы по КА 0, скорость включает вращение осей. Условный порог: сумма радиусов 0,02 км + запас 1 км. Атмосфера и ошибки состояния не включены.")
+        craft=scenario["spacecraft"]; atmosphere=scenario["atmosphere"]
+        self.model_details.setText(f"ECI средней даты, GMST≈{observer['greenwich_angle_at_zenith_deg']:.3f}° (UT1≈UTC); μ={orbit['mu_km3_s2']:g} км³/с²; J₂={orbit['j2']:.11f}. 16U: m={craft['mass_kg']:g} кг (допущение для этой группы), A={craft['effective_area_m2']:g} м², CD={craft['drag_coefficient']:g} (допущение), широкая грань к потоку. Плотность при 700 км {atmosphere['rho_reference_kg_m3']:.2e} кг/м³, H={atmosphere['scale_height_km']:g} км; приближённая модель. Локальное начало — центр {size*size} КА. Гармоники выше J₂, Солнце, Луна, световое давление и тяга не включены.")
         self.elements_table.setRowCount(size*size)
         self.elements_table.setVisible(self.elements_button.isChecked())
         for row,entry in enumerate(result.metadata["orbital_elements"]):
@@ -319,7 +333,8 @@ class DemoWindow(QMainWindow):
         self.time_slider.setRange(0,len(result.t_s)-1)
         self.time_slider.setValue(int(np.argmin(abs(result.t_s))))
         self.time_slider.blockSignals(False)
-        self.timeline.set_result(result.t_s,result.metadata["observability"]["eligible"])
+        self.timeline.set_result(result.t_s,result.metadata["observability"]["eligible"]
+                                 &self.window_model_valid)
         self.update_frame()
 
     def _toggle_elements(self,expanded):
@@ -336,39 +351,28 @@ class DemoWindow(QMainWindow):
         if self.result is None: raise ValueError("Нет выбранного набора")
         m=self.result.metadata
         payload={"epoch_utc":self.scenario["epoch_utc"],"grid_size":m["grid_size"],
-            "index_map":m["grid_indices"],"model":"independent_j2",
+            "index_map":m["grid_indices"],"model":self.scenario["model_id"],
             "elements_at_epoch":m["orbital_elements"],"reference_orbit":self.scenario["orbit"],
-            "study_provenance":self.scenario["study_provenance"],
+            "study_provenance":{"scope":"one_pass","included_forces":m["included_forces"]},
             "units":{"a":"km","angles":"deg","e":"dimensionless"}}
         Path(path).write_text(json.dumps(payload,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
 
     def _choose_long_analysis_dir(self):
         if self.result is None: return
-        folder=QFileDialog.getExistingDirectory(self,"Папка отдельных результатов",
-            str(Path("orbit_study/user_runs").resolve()))
-        if folder: self.start_long_analysis(folder)
+        self.start_long_analysis()
 
     def start_long_analysis(self,output_parent=None):
-        if self.result is None or self.analysis_future is not None: return
-        size=self.grid_size.value()
-        angle=float(self.resolution.currentData())
-        days=self.long_horizon.value()
-        self.long_button.setEnabled(False)
-        self.long_status.setText(f"Расчёт N={size}, {days:g} сут. выполняется…")
-        self.analysis_future=self.analysis_executor.submit(run_selected_case,size,angle,days,output_parent)
-        self.analysis_timer.start()
-
-    def _poll_long_analysis(self):
-        if self.analysis_future is None or not self.analysis_future.done(): return
-        future=self.analysis_future
-        self.analysis_future=None
-        self.analysis_timer.stop()
-        self.long_button.setEnabled(self.result is not None)
-        try:
-            out=future.result()
-            self.long_status.setText(f"{out['status']}; подходящих пролётов {out['qualifying_passes']}; min {out['closest_pair']['distance_km']:.3f} км; файлы: {out['folder']}")
-        except Exception as exc:
-            self.long_status.setText(f"Отдельный анализ не завершён: {exc}")
+        if self.result is None: return
+        elements=self.result.metadata["orbital_elements"]
+        radius=self.scenario["orbit"]["earth_radius_km"]
+        low=min(entry["a_km"]*(1-entry["e"])-radius for entry in elements)
+        high=max(entry["a_km"]*(1+entry["e"])-radius for entry in elements)
+        domain=self.scenario["atmosphere"]["documented_range_km"]
+        if low<domain[0] or high>domain[1]:
+            reason=f"оскул. высоты за виток {low:.0f}…{high:.0f} км выходят за диапазон плотности {domain[0]:g}…{domain[1]:g} км"
+        else:
+            reason="для этого набора не выполнены многосуточное распространение и проверка всех пар"
+        self.long_status.setText(f"Запрос на {self.long_horizon.value():g} сут. отклонён: {reason}. Старые результаты J₂ не используются как проверка новой модели.")
 
     def toggle_play(self):
         if self.result is None: return
@@ -399,17 +403,18 @@ class DemoWindow(QMainWindow):
         self._draw_space(k)
         obs=r.metadata["observability"]
         quality=r.metadata["quality"]
-        good=bool(obs["eligible"][k])
+        good=bool(obs["eligible"][k] and self.window_model_valid)
         longest=quality["longest_interval_s"]
         interval=(f"{longest[0]:g}…{longest[1]:g} с ({quality['longest_contiguous_duration_s']:.0f} с)" if quality["has_positive_duration_interval"] else "отсутствует")
         visible=obs["visibility_intervals_s"]
         vis_text=", ".join(f"{a:g}…{b:g} с" for a,b in visible) or "нет"
-        self.observable_badge.setText(f"{'● Вся сетка приемлема сейчас' if good else '● Сетка сейчас неприемлема: '+obs['reasons'][k]}. Видимость всех КА: {vis_text}. Подходящий интервал пролёта: {interval}.")
+        reason=obs['reasons'][k] if self.window_model_valid else "модель плотности выходит за область применимости на проверяемом окне"
+        self.observable_badge.setText(f"{'● Вся сетка приемлема сейчас' if good else '● Сетка сейчас неприемлема: '+reason}. Видимость всех КА: {vis_text}. Геометрический интервал пролёта: {interval}.")
         self.observable_badge.setStyleSheet("background:#d9f4e3;color:#145b32;padding:5px;" if good else "background:#ffe3df;color:#8b241d;padding:5px;")
-        audit=self.study_record["verification"]
+        audit=self.study_record
         closest=audit["closest_pair"]
-        threshold=audit["absolute_minimum_requirement_km"]
-        self.safety_badge.setText(f"Минимум между КА сейчас: {r.min_pair_distance_km[k]:.3f} км. Минимум за проверенный интервал: {closest['distance_km']:.3f} км, пара {closest['pair']}, t={closest['t_s']:.1f} с, {closest['latitude_deg']:.1f}° / {closest['longitude_deg']:.1f}°. Порог: размеры КА + принятый запас = {threshold:g} км (условный). Горизонт проверки: {audit['horizon_days']:g} сут. от эпохи, плюс начало первого пролёта; все {audit['pair_count']} пар.")
+        threshold=audit["threshold_km"]
+        self.safety_badge.setText(f"Минимум между КА сейчас: {r.min_pair_distance_km[k]:.3f} км. Минимум за проверенный интервал: {closest['distance_km']:.3f} км, пара {closest['pair']}, t={closest['t_s']:.1f} с, {closest['latitude_deg']:.1f}° / {closest['longitude_deg']:.1f}°. Порог: размеры КА + принятый запас = {threshold:g} км (условный). Горизонт проверки: {audit['horizon_s'][0]:g}…{audit['horizon_s'][1]:g} с; все {audit['pair_count']} пар.")
         self.safety_badge.setStyleSheet("background:#e7edf8;color:#1c3764;padding:5px;" if closest["distance_km"]>=threshold else "background:#fff0d9;color:#805015;padding:5px;")
         gm=r.metadata["grid_metrics"]
         errors=r.shape_errors[k]
@@ -511,8 +516,6 @@ class DemoWindow(QMainWindow):
         self.space.draw_idle()
 
     def closeEvent(self,event):
-        self.analysis_timer.stop()
-        self.analysis_executor.shutdown(wait=False,cancel_futures=True)
         super().closeEvent(event)
 
 

@@ -1,0 +1,242 @@
+[
+  {
+    "parameters": {
+      "side_deg": 20.0,
+      "depth_factor": 0.0,
+      "range_rate_factor": 0.85,
+      "warp_factor": 0.03,
+      "height_km": 700.0,
+      "inclination_deg": 97.8
+    },
+    "score": [
+      false,
+      25.0,
+      45.0,
+      518.3552370560965,
+      -6.903558580216563
+    ],
+    "best_duration_2deg_s": 25.0,
+    "minimum_altitude_km": 518.3552370560965,
+    "minimum_pair_sample_km": 2.7692556952148295
+  },
+  {
+    "parameters": {
+      "side_deg": 20.0,
+      "depth_factor": 0.0,
+      "range_rate_factor": 0.85,
+      "warp_factor": 0.035,
+      "height_km": 700.0,
+      "inclination_deg": 97.8
+    },
+    "score": [
+      false,
+      30.0,
+      40.0,
+      518.3552370560965,
+      -6.917243061600139
+    ],
+    "best_duration_2deg_s": 30.0,
+    "minimum_altitude_km": 518.3552370560965,
+    "minimum_pair_sample_km": 2.7535583281713523
+  },
+  {
+    "parameters": {
+      "side_deg": 20.0,
+      "depth_factor": 0.0,
+      "range_rate_factor": 0.85,
+      "warp_factor": 0.04,
+      "height_km": 700.0,
+      "inclination_deg": 97.8
+    },
+    "score": [
+      false,
+      30.0,
+      30.0,
+      518.3552370560965,
+      -6.930924602955287
+    ],
+    "best_duration_2deg_s": 30.0,
+    "minimum_altitude_km": 518.3552370560965,
+    "minimum_pair_sample_km": 2.737893328388849
+  },
+  {
+    "parameters": {
+      "side_deg": 20.0,
+      "depth_factor": 0.0,
+      "range_rate_factor": 0.9,
+      "warp_factor": 0.03,
+      "height_km": 700.0,
+      "inclination_deg": 97.8
+    },
+    "score": [
+      true,
+      20.0,
+      40.0,
+      568.3641453798655,
+      -7.2532588739397
+    ],
+    "best_duration_2deg_s": 20.0,
+    "minimum_altitude_km": 568.3641453798655,
+    "minimum_pair_sample_km": 2.4730959317924177
+  },
+  {
+    "parameters": {
+      "side_deg": 20.0,
+      "depth_factor": 0.0,
+      "range_rate_factor": 0.9,
+      "warp_factor": 0.035,
+      "height_km": 700.0,
+      "inclination_deg": 97.8
+    },
+    "score": [
+      true,
+      30.0,
+      35.0,
+      568.3641453798655,
+      -7.268236580425607
+    ],
+    "best_duration_2deg_s": 30.0,
+    "minimum_altitude_km": 568.3641453798655,
+    "minimum_pair_sample_km": 2.45886414824644
+  },
+  {
+    "parameters": {
+      "side_deg": 20.0,
+      "depth_factor": 0.0,
+      "range_rate_factor": 0.9,
+      "warp_factor": 0.04,
+      "height_km": 700.0,
+      "inclination_deg": 97.8
+    },
+    "score": [
+      true,
+      30.0,
+      30.0,
+      568.3641453798655,
+      -7.283209497438236
+    ],
+    "best_duration_2deg_s": 30.0,
+    "minimum_altitude_km": 568.3641453798655,
+    "minimum_pair_sample_km": 2.4446645270518244
+  },
+  {
+    "parameters": {
+      "side_deg": 20.0,
+      "depth_factor": 0.0,
+      "range_rate_factor": 0.95,
+      "warp_factor": 0.03,
+      "height_km": 700.0,
+      "inclination_deg": 97.8
+    },
+    "score": [
+      true,
+      20.0,
+      35.0,
+      610.334177671939,
+      -7.652013405779611
+    ],
+    "best_duration_2deg_s": 20.0,
+    "minimum_altitude_km": 610.334177671939,
+    "minimum_pair_sample_km": 2.2226672325504686
+  },
+  {
+    "parameters": {
+      "side_deg": 20.0,
+      "depth_factor": 0.0,
+      "range_rate_factor": 0.95,
+      "warp_factor": 0.035,
+      "height_km": 700.0,
+      "inclination_deg": 97.8
+    },
+    "score": [
+      true,
+      30.0,
+      30.0,
+      610.334177671939,
+      -7.668665841591895
+    ],
+    "best_duration_2deg_s": 30.0,
+    "minimum_altitude_km": 610.334177671939,
+    "minimum_pair_sample_km": 2.2100462792007867
+  },
+  {
+    "parameters": {
+      "side_deg": 20.0,
+      "depth_factor": 0.0,
+      "range_rate_factor": 0.95,
+      "warp_factor": 0.04,
+      "height_km": 700.0,
+      "inclination_deg": 97.8
+    },
+    "score": [
+      true,
+      30.0,
+      30.0,
+      610.334177671939,
+      -7.685312306333693
+    ],
+    "best_duration_2deg_s": 30.0,
+    "minimum_altitude_km": 610.334177671939,
+    "minimum_pair_sample_km": 2.1974267884637495
+  },
+  {
+    "parameters": {
+      "side_deg": 20.0,
+      "depth_factor": 0.0,
+      "range_rate_factor": 1.0,
+      "warp_factor": 0.03,
+      "height_km": 700.0,
+      "inclination_deg": 97.8
+    },
+    "score": [
+      true,
+      20.0,
+      35.0,
+      644.3403328510767,
+      -8.098033782600199
+    ],
+    "best_duration_2deg_s": 20.0,
+    "minimum_altitude_km": 644.3403328510767,
+    "minimum_pair_sample_km": 1.939718001490092
+  },
+  {
+    "parameters": {
+      "side_deg": 20.0,
+      "depth_factor": 0.0,
+      "range_rate_factor": 1.0,
+      "warp_factor": 0.035,
+      "height_km": 700.0,
+      "inclination_deg": 97.8
+    },
+    "score": [
+      true,
+      30.0,
+      30.0,
+      644.3403328510767,
+      -8.116866206129496
+    ],
+    "best_duration_2deg_s": 30.0,
+    "minimum_altitude_km": 644.3403328510767,
+    "minimum_pair_sample_km": 1.9294504249963218
+  },
+  {
+    "parameters": {
+      "side_deg": 20.0,
+      "depth_factor": 0.0,
+      "range_rate_factor": 1.0,
+      "warp_factor": 0.04,
+      "height_km": 700.0,
+      "inclination_deg": 97.8
+    },
+    "score": [
+      true,
+      25.0,
+      25.0,
+      644.3403328510767,
+      -8.135693045535023
+    ],
+    "best_duration_2deg_s": 25.0,
+    "minimum_altitude_km": 644.3403328510767,
+    "minimum_pair_sample_km": 1.9199455387243967
+  }
+]

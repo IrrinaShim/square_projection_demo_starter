@@ -133,7 +133,7 @@ def orbital_basis(chief_states):
     return np.stack((ex,ey,ez),axis=-1)
 
 
-def centroid_relative_frame(states, mu, earth_radius, j2):
+def centroid_relative_frame(states, mu, earth_radius, j2, chief_extra_acceleration=None):
     """Центр масс равновесных точек и вращающаяся ОСО КА 0.
 
     B=[e_r,e_t,e_h] ориентирована по мгновенным r0,v0. Скорость в
@@ -146,6 +146,8 @@ def centroid_relative_frame(states, mu, earth_radius, j2):
     chief=states[:,0]
     r,v=chief[:,0],chief[:,1]
     acceleration=acceleration_j2(r,mu,earth_radius,j2)
+    if chief_extra_acceleration is not None:
+        acceleration=acceleration+np.asarray(chief_extra_acceleration)
     radius=np.linalg.norm(r,axis=1)
     ex=r/radius[:,None]
     exdot=(v-ex*np.sum(ex*v,axis=1)[:,None])/radius[:,None]
