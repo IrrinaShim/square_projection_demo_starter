@@ -14,7 +14,7 @@ from orbit_study.drag_demo.audit import audit_one_pass
 from orbit_study.drag_demo.centered_projection import centered_initial_candidate, centered_metrics
 from orbit_study.drag_demo.search import checked_geometry, initial_candidate, orbit_limits, prepare_config
 from orbit_study.drag_model import integrate
-from orbit_study.evaluate import intervals
+from orbit_study.evaluate import geometry, intervals
 from square_demo.core import zenith_orbit
 from square_demo.core import project
 from square_demo.drag_provider import calculate_drag_case
@@ -80,7 +80,8 @@ def drag_record(config,candidate,label,full_audit=None):
     geom=checked_geometry(propagated,t,config,candidate["N"])
     no_visibility=deepcopy(config)
     no_visibility["visibility"]["min_elevation_deg"]=-90.
-    form=checked_geometry(propagated,t,no_visibility,candidate["N"])["accepted"]["0"]
+    form=geometry(propagated,t,no_visibility,candidate["N"],thresholds=(0.,))["accepted"]["0"]
+    form_and_size=checked_geometry(propagated,t,no_visibility,candidate["N"])["accepted"]["0"]
     visible=geom["min_elevation_deg"]>=config["visibility"]["min_elevation_deg"]
     chief_a=candidate["elements_at_epoch"][0]["a_km"]
     period=2*np.pi*np.sqrt(chief_a**3/config["orbit"]["mu_km3_s2"])
@@ -100,6 +101,7 @@ def drag_record(config,candidate,label,full_audit=None):
         "epoch_utc":config["epoch_utc"],"N":candidate["N"],
         "parameters":candidate["parameters"],
         "form_intervals_s":windows(t,form),
+        "form_and_target_size_intervals_s":windows(t,form_and_size),
         "all_visible_intervals_s":windows(t,visible),
         "observed_square_intervals_s":windows(t,geom["accepted"]["0"]),
         "instrument_resolved_square_intervals_2deg_s":windows(t,geom["accepted"]["2"]),
