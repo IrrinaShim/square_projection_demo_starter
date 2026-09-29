@@ -35,10 +35,15 @@ def calculate_drag_case(config,candidate):
     robs=observer_eci(t,0,orbit["earth_radius_km"],config["observer"])
     metadata=_metadata(scenario,"Независимые орбиты: центральное поле + J₂ + атмосферное сопротивление",
         orbit,"Плотность приближённая; исследовательский расчёт, не эксплуатационный прогноз.",0.)
+    # Разрешение прибора не входит в математическое определение квадрата.
+    # observability() получает те же допуски формы с нулевым порогом шага;
+    # фактический истинный угол и проверка 2° хранятся отдельно.
+    metadata["grid_tolerances"]=dict(config["grid_tolerances"],min_neighbor_angle_deg=0.)
     metadata.update({"angular_side_deg":candidate["parameters"]["side_deg"],
         "variant":"passive_drag","epoch_utc":config["epoch_utc"],
         "orbital_elements":candidate["elements_at_epoch"],"grid_size":size,
-        "grid_indices":candidate["grid_indices"],"grid_tolerances":config["grid_tolerances"],
+        "grid_indices":candidate["grid_indices"],"grid_tolerances":metadata["grid_tolerances"],
+        "instrument_resolution_deg":float(config["grid_tolerances"]["min_neighbor_angle_deg"]),
         "initial_epoch_s":0.,"initial_choice":"собственные элементы всех КА на общей эпохе",
         "local_frame_origin":"centroid","center_eci_km":center,
         "center_velocity_eci_km_s":center_velocity,
@@ -57,6 +62,8 @@ def calculate_drag_case(config,candidate):
     deviation=observation["size_deviation_percent"]
     size_ok=np.isfinite(deviation)&(np.abs(deviation)<=limit)
     observation["eligible"] &= size_ok
+    observation["resolution_ok"]=(result.metadata["grid_metrics"]["min_true_neighbor_angle_deg"]
+                                  >=metadata["instrument_resolution_deg"])
     for k in np.flatnonzero(~size_ok):
         observation["reasons"][k]+=("; " if observation["reasons"][k] else "")+(
             f"внешний размер: отклонение {deviation[k]:+.2f}% > {limit:g}%")

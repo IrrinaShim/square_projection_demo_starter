@@ -10,7 +10,7 @@ while window.result is None and time.perf_counter()-t0<20:
     app.processEvents();time.sleep(.01)
 if window.result is None: raise RuntimeError(window.status.text())
 print(f'saved_startup_s={time.perf_counter()-t0:.3f}')
-for mode in range(3):
+for mode in range(window.view.count()):
     window.view.setCurrentIndex(mode);app.processEvents()
     elapsed=[]
     for index in (20,40,60,80,100,120,140,160):

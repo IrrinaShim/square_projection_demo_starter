@@ -31,7 +31,8 @@ def load_or_search(size,side_deg,neighbor_deg,latitude_deg=25.3026,
     cfg["angular_side_deg"]=float(side_deg)
     case_path=ROOT/"results"/(f"n{size}/case.json" if size in (2,3) else "case.json")
     saved=json.loads(case_path.read_text(encoding="utf-8")) if case_path.exists() else None
-    same=(saved is not None and size==saved["N"] and np.isclose(side_deg,saved["parameters"]["side_deg"])
+    same=(saved is not None and saved.get("schema_version")==3
+          and size==saved["N"] and np.isclose(side_deg,saved["parameters"]["side_deg"])
           and cfg==saved["config"] and
           saved["model_fingerprint_sha256"]==model_fingerprint())
     if same:
@@ -53,10 +54,15 @@ def load_or_search(size,side_deg,neighbor_deg,latitude_deg=25.3026,
             "one_pass_horizon_s":saved["one_pass"]["time_s"],
             "one_pass_closest_pair":saved["one_pass"]["closest_pair"],
             "dangerous_events_count":full["dangerous_event_count"],
-            "saved_duration_s":saved["one_pass"]["longest_contiguous_duration_2deg_s"],
+            "saved_duration_s":saved["one_pass"]["longest_contiguous_duration_square_s"],
+            "instrument_duration_2deg_s":saved["one_pass"]["longest_contiguous_duration_2deg_display_s"],
             "minimum_altitude_km":full["minimum_altitude_km"],
             "maximum_altitude_km":full["maximum_altitude_km"],
             "verified_acceptable":saved["verified_acceptable"],
+            "full_orbit_ok":saved["full_orbit_ok"],
+            "full_orbit_violations":saved["full_orbit_violations"],
+            "projection_violations":saved["projection_violations"],
+            "instrument_violations":saved["instrument_violations"],
             "violations":saved["violations"],"orbit_closeness":saved["orbit_closeness"]}
         cfg["angular_side_deg"]=float(side_deg)
         return cfg,candidate,audit,("сохранённый кандидат: проверены один пролёт и полный виток" if saved["verified_acceptable"]
@@ -83,8 +89,14 @@ def load_or_search(size,side_deg,neighbor_deg,latitude_deg=25.3026,
         audit["violations"].append("высота на полном витке вне диапазона модели")
     if checked["dangerous_events"]:
         audit["violations"].append("опасное сближение на полном витке")
-    if preview["best_duration_2deg_s"]<=0:
-        audit["violations"].append("нет связного интервала приемлемой проекции")
+    audit["full_orbit_violations"]=audit["violations"].copy()
+    audit["full_orbit_ok"]=not audit["full_orbit_violations"]
+    audit["projection_violations"]=([] if preview["best_duration_square_s"]>0 else
+                                    ["нет связного интервала наблюдаемого квадрата"])
+    audit["instrument_duration_2deg_s"]=preview["best_duration_2deg_s"]
+    audit["instrument_violations"]=([] if preview["best_duration_2deg_s"]>0 else
+                                    ["при исследовательском пороге разрешения 2° нет интервала"])
+    audit["violations"]+=audit["projection_violations"]+audit["instrument_violations"]
     audit["verified_acceptable"]=not audit["violations"]
     cfg["angular_side_deg"]=float(side_deg)
     return cfg,candidate,audit,"новый подбор; проверены пролёт и полный виток"

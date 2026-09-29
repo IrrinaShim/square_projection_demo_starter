@@ -1,0 +1,516 @@
+{
+  "fixed_cases": {
+    "HCW_trial": {
+      "model": "linear_HCW_two_body",
+      "variant": "trial",
+      "epoch": "t=0, conditional Greenwich 0 deg",
+      "angular_side_target_deg": 1.8183029644518331,
+      "form_intervals_s": [
+        [
+          -60.0,
+          60.0
+        ]
+      ],
+      "all_visible_intervals_s": [
+        [
+          -215.0,
+          210.0
+        ]
+      ],
+      "observed_square_intervals_s": [
+        [
+          -60.0,
+          60.0
+        ]
+      ],
+      "outer_size_at_epoch_deg": 1.8183029644518407,
+      "minimum_pair_on_displayed_pass_km": 17.693503940873143,
+      "minimum_pair_time_s": -450.0,
+      "osculating_elements_if_interpreted_as_ECI_at_epoch": [
+        {
+          "a_km": 7000.999999999997,
+          "e": 5.23691153334427e-16,
+          "inclination_deg": 97.8,
+          "raan_deg": 55.226224550333264,
+          "arg_perigee_deg": 0.0,
+          "true_anomaly_deg": 25.55581683149022
+        },
+        {
+          "a_km": 7001.114270905491,
+          "e": 1.2241425141491691e-05,
+          "inclination_deg": 97.8,
+          "raan_deg": 55.22622455033327,
+          "arg_perigee_deg": 25.7194952305494,
+          "true_anomaly_deg": 1.7378087860055794e-10
+        },
+        {
+          "a_km": 7001.171406882817,
+          "e": 1.6321900188852244e-05,
+          "inclination_deg": 97.87100443717625,
+          "raan_deg": 55.077360033801554,
+          "arg_perigee_deg": 25.69920059883138,
+          "true_anomaly_deg": 1.735506342195929e-11
+        },
+        {
+          "a_km": 7001.057134811609,
+          "e": 4.080458396832955e-06,
+          "inclination_deg": 97.87058310579589,
+          "raan_deg": 55.07715533972698,
+          "arg_perigee_deg": 25.53549483625957,
+          "true_anomaly_deg": 5.037226275162434e-10
+        }
+      ],
+      "qualification": "Оскулирующие элементы лишь пересчёт мгновенных HCW состояний; сама HCW траектория не интегрирует эти орбиты"
+    },
+    "HCW_fitted_context": {
+      "model": "linear_HCW_two_body",
+      "variant": "fitted",
+      "epoch": "t=0, conditional Greenwich 0 deg",
+      "angular_side_target_deg": 1.8183029644518331,
+      "form_intervals_s": [
+        [
+          -325.0,
+          330.0
+        ]
+      ],
+      "all_visible_intervals_s": [
+        [
+          -215.0,
+          210.0
+        ]
+      ],
+      "observed_square_intervals_s": [
+        [
+          -215.0,
+          210.0
+        ]
+      ],
+      "outer_size_at_epoch_deg": 1.818302964451816,
+      "minimum_pair_on_displayed_pass_km": 17.44527235752254,
+      "minimum_pair_time_s": -450.0,
+      "osculating_elements_if_interpreted_as_ECI_at_epoch": [
+        {
+          "a_km": 7000.999999999997,
+          "e": 5.23691153334427e-16,
+          "inclination_deg": 97.8,
+          "raan_deg": 55.226224550333264,
+          "arg_perigee_deg": 0.0,
+          "true_anomaly_deg": 25.55581683149022
+        },
+        {
+          "a_km": 6999.513399782704,
+          "e": 0.005588439172387099,
+          "inclination_deg": 97.79917455338915,
+          "raan_deg": 55.225823232229615,
+          "arg_perigee_deg": 118.02218670907304,
+          "true_anomaly_deg": 267.6972158188421
+        },
+        {
+          "a_km": 6997.834906393122,
+          "e": 0.006219012846158065,
+          "inclination_deg": 97.87728520801498,
+          "raan_deg": 55.08045321751226,
+          "arg_perigee_deg": 120.09288722493092,
+          "true_anomaly_deg": 265.60669984971656
+        },
+        {
+          "a_km": 6999.423776232544,
+          "e": 0.0006592847893352296,
+          "inclination_deg": 97.87059319278481,
+          "raan_deg": 55.07715059365311,
+          "arg_perigee_deg": 136.40329896054158,
+          "true_anomaly_deg": 249.13219522631357
+        }
+      ],
+      "qualification": "Оскулирующие элементы лишь пересчёт мгновенных HCW состояний; сама HCW траектория не интегрирует эти орбиты"
+    },
+    "independent_same_parameters": {
+      "model": "independent_central_J2_drag",
+      "label": "same_angle_and_altitude_as_HCW",
+      "epoch_utc": "2026-09-28T00:00:00Z",
+      "N": 2,
+      "parameters": {
+        "side_deg": 1.8183029644518331,
+        "depth_factor": 0.0,
+        "range_rate_factor": 0.03,
+        "warp_factor": 0.0,
+        "height_km": 630.0,
+        "inclination_deg": 97.8
+      },
+      "form_intervals_s": [
+        [
+          -36.0,
+          33.0
+        ]
+      ],
+      "all_visible_intervals_s": [
+        [
+          -215.0,
+          212.0
+        ]
+      ],
+      "observed_square_intervals_s": [
+        [
+          -36.0,
+          33.0
+        ]
+      ],
+      "instrument_resolved_square_intervals_2deg_s": [],
+      "outer_size_at_epoch_deg": 1.8183029644518156,
+      "true_minimum_neighbor_at_epoch_deg": 1.8173880181290105,
+      "minimum_pair_on_displayed_pass_km": 17.6711318291257,
+      "minimum_pair_full_orbit": {
+        "pair": "0-3",
+        "t_s": 1452.1746689669783,
+        "utc": "2026-09-28T00:24:12.174669Z",
+        "distance_km": 1.6947841837401831,
+        "latitude_deg": 63.71119557012708,
+        "longitude_deg": -114.70196448015628,
+        "method": "повторное интегрирование J₂+сопротивление"
+      },
+      "full_orbit_altitude_range_km": [
+        623.1431245481663,
+        632.7428644788815
+      ],
+      "orbit_closeness": {
+        "a_range_km": [
+          7000.450647689777,
+          7001.0
+        ],
+        "e_range": [
+          7.850462293418876e-17,
+          0.0009043187788387375
+        ],
+        "i_range_deg": [
+          97.79988756632427,
+          97.87140833788321
+        ],
+        "perigee_altitude_range_km": [
+          623.1200087087373,
+          629.9999999999991
+        ],
+        "apogee_altitude_range_km": [
+          630.0,
+          635.7812866708164
+        ],
+        "period_spread_s": 0.6861589565769464,
+        "max_epoch_relative_speed_km_s": 0.02835110327101998
+      },
+      "orbit_closeness_violations": [],
+      "center_radius_epoch_range_km": [
+        14.141295132227137,
+        14.14210112473242
+      ],
+      "elements_at_epoch": [
+        {
+          "a_km": 7001.0,
+          "e": 7.850462293418876e-17,
+          "inclination_deg": 97.8,
+          "raan_deg": 62.011873527717235,
+          "arg_perigee_deg": 0.0,
+          "true_anomaly_deg": 25.55581683149022
+        },
+        {
+          "a_km": 7000.739578384631,
+          "e": 0.0008056837055518944,
+          "inclination_deg": 97.79988756632427,
+          "raan_deg": 62.01181886419706,
+          "arg_perigee_deg": 118.38360260211023,
+          "true_anomaly_deg": 267.3358777978334
+        },
+        {
+          "a_km": 7000.450647689777,
+          "e": 0.0009043187788387375,
+          "inclination_deg": 97.87140833788321,
+          "raan_deg": 61.8632129727376,
+          "arg_perigee_deg": 120.98276692661484,
+          "true_anomaly_deg": 264.71645469946895
+        },
+        {
+          "a_km": 7000.707295434287,
+          "e": 0.00010677189106866277,
+          "inclination_deg": 97.87052302413443,
+          "raan_deg": 61.86277335840712,
+          "arg_perigee_deg": 141.63436880294628,
+          "true_anomaly_deg": 243.90112179447163
+        }
+      ]
+    },
+    "independent_saved_20deg": {
+      "model": "independent_central_J2_drag",
+      "label": "saved_n2_20deg_700km",
+      "epoch_utc": "2026-09-28T00:00:00Z",
+      "N": 2,
+      "parameters": {
+        "side_deg": 20.0,
+        "depth_factor": 0.0,
+        "range_rate_factor": 0.03,
+        "warp_factor": 0.0,
+        "height_km": 700.0,
+        "inclination_deg": 97.8
+      },
+      "form_intervals_s": [
+        [
+          -55.0,
+          25.0
+        ]
+      ],
+      "all_visible_intervals_s": [
+        [
+          -235.0,
+          196.0
+        ]
+      ],
+      "observed_square_intervals_s": [
+        [
+          -55.0,
+          25.0
+        ]
+      ],
+      "instrument_resolved_square_intervals_2deg_s": [
+        [
+          -55.0,
+          25.0
+        ]
+      ],
+      "outer_size_at_epoch_deg": 20.00000000000011,
+      "true_minimum_neighbor_at_epoch_deg": 18.88172123090683,
+      "minimum_pair_on_displayed_pass_km": 222.03375083252186,
+      "minimum_pair_full_orbit": {
+        "pair": "1-2",
+        "t_s": 1469.5839148001014,
+        "utc": "2026-09-28T00:24:29.583915Z",
+        "distance_km": 37.630000138655966,
+        "latitude_deg": 60.94429930411579,
+        "longitude_deg": -116.57311999285143,
+        "method": "повторное интегрирование J₂+сопротивление"
+      },
+      "full_orbit_altitude_range_km": [
+        557.5069564324558,
+        737.3364401047302
+      ],
+      "orbit_closeness": {
+        "a_range_km": [
+          7015.859122530989,
+          7071.000000000001
+        ],
+        "e_range": [
+          1.2412670766236366e-16,
+          0.012759159525336666
+        ],
+        "i_range_deg": [
+          97.78681823337085,
+          98.7996185210369
+        ],
+        "perigee_altitude_range_km": [
+          555.3426567793276,
+          700.0
+        ],
+        "apogee_altitude_range_km": [
+          700.0000000000027,
+          739.9916901487159
+        ],
+        "period_spread_s": 69.08245229254226,
+        "max_epoch_relative_speed_km_s": 0.34135310692907916
+      },
+      "orbit_closeness_violations": [],
+      "center_radius_epoch_range_km": [
+        178.71257408284086,
+        180.0445450199742
+      ],
+      "elements_at_epoch": [
+        {
+          "a_km": 7071.000000000001,
+          "e": 1.2412670766236366e-16,
+          "inclination_deg": 97.8,
+          "raan_deg": 62.011873527717235,
+          "arg_perigee_deg": 0.0,
+          "true_anomaly_deg": 25.555816831490212
+        },
+        {
+          "a_km": 7044.118009648895,
+          "e": 0.009493549143869864,
+          "inclination_deg": 97.78681823337085,
+          "raan_deg": 62.004915649081674,
+          "arg_perigee_deg": 142.21617711568743,
+          "true_anomaly_deg": 245.39137522107342
+        },
+        {
+          "a_km": 7015.859122530989,
+          "e": 0.012759159525336666,
+          "inclination_deg": 98.7996185210369,
+          "raan_deg": 60.20131755662576,
+          "arg_perigee_deg": 159.85129347864356,
+          "true_anomaly_deg": 227.4962154656429
+        },
+        {
+          "a_km": 7042.018175633992,
+          "e": 0.004967146317118033,
+          "inclination_deg": 98.68217953721641,
+          "raan_deg": 60.12488362964108,
+          "arg_perigee_deg": 193.67099295384816,
+          "true_anomaly_deg": 191.6142238979681
+        }
+      ]
+    }
+  },
+  "ideal_n10_20deg_noncentered_min_true_step_deg": 1.9715103220366024,
+  "centered_initial_comparison": [
+    {
+      "N": 2,
+      "target_error_at_epoch": 3.3306690738754696e-16,
+      "centroid_image_mean_at_epoch": [
+        2.1510571102112408e-16,
+        1.5959455978986625e-16
+      ],
+      "form_intervals_s": [
+        [
+          -35.0,
+          25.0
+        ]
+      ],
+      "observed_square_intervals_s": [
+        [
+          -35.0,
+          25.0
+        ]
+      ],
+      "instrument_resolved_intervals_2deg_s": [
+        [
+          -35.0,
+          25.0
+        ]
+      ],
+      "true_minimum_neighbor_at_epoch_deg": 20.30186468515124,
+      "orbit_closeness": {
+        "a_range_km": [
+          6761.271997245964,
+          7071.000000000001
+        ],
+        "e_range": [
+          1.2412670766236366e-16,
+          0.034154434371364055
+        ],
+        "i_range_deg": [
+          97.7706689468142,
+          98.68743334436445
+        ],
+        "perigee_altitude_range_km": [
+          159.3445765490851,
+          700.0
+        ],
+        "apogee_altitude_range_km": [
+          621.199417942842,
+          700.0000000000027
+        ],
+        "period_spread_s": 384.5080378352668,
+        "max_epoch_relative_speed_km_s": 0.27379989148401634
+      },
+      "orbit_closeness_violations": [
+        "перигей: 159.345 >= 500 не выполнено",
+        "разброс a: 309.728 <= 100 не выполнено",
+        "макс. e: 0.034 <= 0.03 не выполнено",
+        "разброс периодов: 384.508 <= 130 не выполнено"
+      ],
+      "qualification": "Равнодальные симметричные лучи и вращательная начальная скорость; исследовательское начальное приближение, не выбранная орбита"
+    },
+    {
+      "N": 10,
+      "target_error_at_epoch": 2.886579864025407e-15,
+      "centroid_image_mean_at_epoch": [
+        -2.3667179327446773e-15,
+        8.565370634983083e-16
+      ],
+      "form_intervals_s": [
+        [
+          -5.0,
+          10.0
+        ]
+      ],
+      "observed_square_intervals_s": [
+        [
+          -5.0,
+          10.0
+        ]
+      ],
+      "instrument_resolved_intervals_2deg_s": [
+        [
+          -5.0,
+          10.0
+        ]
+      ],
+      "true_minimum_neighbor_at_epoch_deg": 2.223091567374564,
+      "orbit_closeness": {
+        "a_range_km": [
+          6761.271997245964,
+          7071.000000000001
+        ],
+        "e_range": [
+          1.2412670766236366e-16,
+          0.034154434371364055
+        ],
+        "i_range_deg": [
+          97.7706689468142,
+          98.68743334436445
+        ],
+        "perigee_altitude_range_km": [
+          159.3445765490851,
+          700.0
+        ],
+        "apogee_altitude_range_km": [
+          621.199417942842,
+          700.0000000000027
+        ],
+        "period_spread_s": 384.5080378352668,
+        "max_epoch_relative_speed_km_s": 0.27379989148401634
+      },
+      "orbit_closeness_violations": [
+        "перигей: 159.345 >= 500 не выполнено",
+        "разброс a: 309.728 <= 100 не выполнено",
+        "макс. e: 0.034 <= 0.03 не выполнено",
+        "разброс периодов: 384.508 <= 130 не выполнено"
+      ],
+      "qualification": "Равнодальные симметричные лучи и вращательная начальная скорость; исследовательское начальное приближение, не выбранная орбита"
+    }
+  ],
+  "physics_validation": [
+    {
+      "N": 2,
+      "integrator_step_s": [
+        2.0,
+        1.0,
+        0.5
+      ],
+      "max_position_difference_vs_half_second_km": {
+        "2.0": 2.8017899156056453e-10,
+        "1.0": 4.935004071436266e-11
+      },
+      "square_intervals_5s_grid": {
+        "2.0": [
+          [
+            -55.0,
+            25.0
+          ]
+        ],
+        "1.0": [
+          [
+            -55.0,
+            25.0
+          ]
+        ],
+        "0.5": [
+          [
+            -55.0,
+            25.0
+          ]
+        ]
+      },
+      "local_to_absolute_max_error_km": 1.1368683772161603e-13,
+      "projection_after_local_roundtrip_max_error": 8.326672684688674e-17,
+      "centroid_local_mean_max_km": 9.805489753489383e-13,
+      "chief_displacement_120s_in_fixed_ECI_camera_km": 900.2987216067431,
+      "following_camera_center_displacement_120s_km": 900.2987216067431,
+      "note": "Камеры меняют только пределы осей; обе используют один массив абсолютных рассчитанных положений"
+    }
+  ]
+}

@@ -1,0 +1,328 @@
+{
+  "schema_version": 2,
+  "model_id": "passive-central-J2-exponential-drag-inverse-v2",
+  "model_fingerprint_sha256": "41482a990cc26250999e3862b056d79bdbbec5e37f33c3cbe36e0090d1780f9f",
+  "config": {
+    "schema_version": 1,
+    "model_id": "passive-central-J2-exponential-drag-inverse-v2",
+    "epoch_utc": "2026-09-28T00:00:00Z",
+    "frame": "approximate mean-equator/equinox-of-date ECI; GMST from UTC≈UT1; no precession-nutation/polar motion transformation",
+    "orbit": {
+      "earth_radius_km": 6371.0,
+      "mu_km3_s2": 398600.4,
+      "j2": 0.00108262668,
+      "altitude_km": 700.0,
+      "inclination_deg": 97.8
+    },
+    "observer": {
+      "latitude_deg": 25.3026,
+      "longitude_deg": 51.5132,
+      "earth_rotation_rad_s": 7.292115e-05,
+      "greenwich_angle_at_zenith_deg": 6.785648977383971
+    },
+    "visibility": {
+      "min_elevation_deg": 15.0,
+      "max_side_error": 0.1,
+      "max_diagonal_error": 0.1,
+      "max_angle_error_deg": 10.0
+    },
+    "grid_tolerances": {
+      "min_neighbor_angle_deg": 2.0,
+      "max_outer_side_relative_error": 0.1,
+      "max_point_error_steps": 0.1,
+      "max_neighbor_step_error": 0.1,
+      "max_cell_side_error": 0.1,
+      "max_cell_diagonal_error": 0.1,
+      "max_cell_angle_error_deg": 10.0
+    },
+    "spacecraft": {
+      "form_factor": "16U illustrative",
+      "mass_kg": 22.0,
+      "body_dimensions_m": [
+        0.454,
+        0.2463,
+        0.2463
+      ],
+      "effective_area_m2": 0.1118202,
+      "drag_coefficient": 2.2,
+      "attitude": "fixed broadside normal to instantaneous atmosphere-relative velocity; idealized",
+      "collision_radius_sum_km": 0.02,
+      "additional_safety_margin_km": 1.0,
+      "mass_source_status": "22 kg from other 16U missions; unverified for this formation"
+    },
+    "atmosphere": {
+      "name": "single-scale-height exponential research approximation",
+      "reference_altitude_km": 700.0,
+      "rho_reference_kg_m3": 4.6e-13,
+      "scale_height_km": 97.0,
+      "documented_range_km": [
+        500.0,
+        1200.0
+      ],
+      "source": "NASA NTRS 19650024643, Table 10 near solar maximum; 700 km: 4.6e-16 g/cm3, H=97 km",
+      "space_weather": "fixed near-solar-maximum reference; no F10.7/Ap forecast"
+    },
+    "display": {
+      "start_s": -450.0,
+      "end_s": 450.0,
+      "step_s": 5.0,
+      "integration_step_s": 2.0
+    },
+    "search": {
+      "depth_factors": [
+        0.0,
+        0.02,
+        -0.02
+      ],
+      "range_rate_factors": [
+        0.0,
+        0.01,
+        0.02,
+        0.03
+      ],
+      "warp_factors": [
+        0.0
+      ],
+      "survey_step_s": 5.0,
+      "audit_step_s": 1.0,
+      "refinement_step_s": 0.1,
+      "minimum_altitude_km": 500.0,
+      "maximum_altitude_km": 1200.0,
+      "max_semimajor_axis_spread_km": 100.0,
+      "max_eccentricity": 0.03,
+      "max_inclination_spread_deg": 2.0,
+      "max_period_spread_s": 130.0,
+      "max_epoch_relative_speed_km_s": 0.35
+    },
+    "angular_side_deg": 20.0
+  },
+  "N": 2,
+  "satellite_count": 4,
+  "grid_indices": [
+    [
+      0,
+      1
+    ],
+    [
+      3,
+      2
+    ]
+  ],
+  "parameters": {
+    "side_deg": 20.0,
+    "depth_factor": 0.0,
+    "range_rate_factor": 0.03,
+    "warp_factor": 0.0,
+    "height_km": 700.0,
+    "inclination_deg": 97.8
+  },
+  "elements_at_epoch": [
+    {
+      "a_km": 7071.000000000001,
+      "e": 1.2412670766236366e-16,
+      "inclination_deg": 97.8,
+      "raan_deg": 62.011873527717235,
+      "arg_perigee_deg": 0.0,
+      "true_anomaly_deg": 25.555816831490212
+    },
+    {
+      "a_km": 7044.118009648895,
+      "e": 0.009493549143869864,
+      "inclination_deg": 97.78681823337085,
+      "raan_deg": 62.004915649081674,
+      "arg_perigee_deg": 142.21617711568743,
+      "true_anomaly_deg": 245.39137522107342
+    },
+    {
+      "a_km": 7015.859122530989,
+      "e": 0.012759159525336666,
+      "inclination_deg": 98.7996185210369,
+      "raan_deg": 60.20131755662576,
+      "arg_perigee_deg": 159.85129347864356,
+      "true_anomaly_deg": 227.4962154656429
+    },
+    {
+      "a_km": 7042.018175633992,
+      "e": 0.004967146317118033,
+      "inclination_deg": 98.68217953721641,
+      "raan_deg": 60.12488362964108,
+      "arg_perigee_deg": 193.67099295384816,
+      "true_anomaly_deg": 191.6142238979681
+    }
+  ],
+  "initial_state_roundtrip_max_error_km_or_km_s": 3.183231456205249e-12,
+  "orbit_closeness": {
+    "a_range_km": [
+      7015.859122530989,
+      7071.000000000001
+    ],
+    "e_range": [
+      1.2412670766236366e-16,
+      0.012759159525336666
+    ],
+    "i_range_deg": [
+      97.78681823337085,
+      98.7996185210369
+    ],
+    "perigee_altitude_range_km": [
+      555.3426567793276,
+      700.0
+    ],
+    "apogee_altitude_range_km": [
+      700.0000000000027,
+      739.9916901487159
+    ],
+    "period_spread_s": 69.08245229254226,
+    "max_epoch_relative_speed_km_s": 0.34135310692907617
+  },
+  "verified_acceptable": true,
+  "violations": [],
+  "included_forces": [
+    "центральное притяжение Земли",
+    "J₂",
+    "атмосферное сопротивление"
+  ],
+  "excluded_forces": [
+    "гармоники выше J₂",
+    "Солнце",
+    "Луна",
+    "световое давление",
+    "тяга"
+  ],
+  "verification_scope": "один пролёт и полный виток всех пар; многосуточная устойчивость не проверена",
+  "one_pass": {
+    "time_s": [
+      -450.0,
+      450.0
+    ],
+    "accepted_intervals_1deg": [
+      {
+        "start_s": -55.0,
+        "end_s": 25.0,
+        "duration_s": 80.0,
+        "min_outer_side_deg": 18.153643338871984,
+        "max_outer_side_deg": 20.462538769177435,
+        "min_true_neighbor_deg": 16.843655040533378,
+        "max_shape_errors": [
+          0.09972178782823098,
+          0.07600599013060737,
+          0.15839403906862848
+        ],
+        "max_point_error_steps": 0.07052372290190882,
+        "max_step_error": 0.09972178782823098
+      }
+    ],
+    "accepted_intervals_2deg": [
+      {
+        "start_s": -55.0,
+        "end_s": 25.0,
+        "duration_s": 80.0,
+        "min_outer_side_deg": 18.153643338871984,
+        "max_outer_side_deg": 20.462538769177435,
+        "min_true_neighbor_deg": 16.843655040533378,
+        "max_shape_errors": [
+          0.09972178782823098,
+          0.07600599013060737,
+          0.15839403906862848
+        ],
+        "max_point_error_steps": 0.07052372290190882,
+        "max_step_error": 0.09972178782823098
+      }
+    ],
+    "longest_contiguous_duration_2deg_s": 80.0,
+    "longest_interval_2deg_s": [
+      -55.0,
+      25.0
+    ],
+    "accepted_2deg_metrics_on_1s_grid": {
+      "outer_side_range_deg": [
+        18.153643338871984,
+        20.462538769177435
+      ],
+      "minimum_elevation_deg": 53.042425765014315,
+      "minimum_true_neighbor_deg": 16.843655040533378,
+      "maximum_shape_errors": [
+        0.09972178782823098,
+        0.07600599013060737,
+        0.15839403906862848
+      ],
+      "maximum_point_error_steps": 0.07052372290190882,
+      "maximum_neighbor_step_error": 0.09972178782823098
+    },
+    "min_elevation_deg_over_window": -4.380185653069553,
+    "min_elevation_each_satellite_deg": [
+      -1.929165442696983,
+      -4.257376299758187,
+      -4.380185653069553,
+      -2.0261088311945694
+    ],
+    "min_true_neighbor_deg_at_epoch": 18.881721230906873,
+    "min_true_neighbor_deg_over_window": 2.3824273905747124,
+    "max_shape_errors_over_window": [
+      0.3520983249631069,
+      0.15894849161571753,
+      0.286695846952298
+    ],
+    "minimum_altitude_km": 666.9117675517291,
+    "maximum_altitude_km": 728.1394525398609,
+    "minimum_altitude_each_satellite_km": [
+      699.4298195938854,
+      668.948807293058,
+      666.9117675517291,
+      697.8244616258562
+    ],
+    "pair_count": 6,
+    "closest_pair": {
+      "pair": "1-2",
+      "t_s": -450.0,
+      "utc": "2026-09-27T23:52:30Z",
+      "distance_km": 222.03375083251998,
+      "latitude_deg": 0.29502976668636866,
+      "longitude_deg": 56.15439928741472,
+      "method": "узел"
+    },
+    "dangerous_event_count": 0,
+    "pair_sample_step_s": 1.0,
+    "pair_refinement_step_s": 0.05,
+    "refined_event_count": 0,
+    "pair_minima_file": "pair_minima.csv"
+  },
+  "full_orbit": {
+    "time_s": [
+      0.0,
+      5917.418145512152
+    ],
+    "pair_count": 6,
+    "closest_pair": {
+      "pair": "1-2",
+      "t_s": 1469.5839148001205,
+      "utc": "2026-09-28T00:24:29.583915Z",
+      "distance_km": 37.6300001386482,
+      "latitude_deg": 60.944299304114665,
+      "longitude_deg": -116.57311999285224,
+      "method": "повторное интегрирование J₂+сопротивление"
+    },
+    "dangerous_event_count": 0,
+    "minimum_altitude_km": 557.5069564324658,
+    "maximum_altitude_km": 737.3364401046974,
+    "sample_step_max_s": 5.0,
+    "pair_refinement_step_s": 0.05,
+    "pair_minima_file": "full_orbit_pair_minima.csv"
+  },
+  "sensitivity": {
+    "same_initial_elements": true,
+    "max_position_difference_over_pass_km": 1.6226400400110284e-05,
+    "end_position_difference_max_km": 1.6226400400110284e-05,
+    "accepted_duration_2deg_with_drag_s": 80.0,
+    "accepted_duration_2deg_without_drag_s": 80.0,
+    "minimum_pair_with_drag_sample_km": 222.03375083251998,
+    "minimum_pair_without_drag_sample_km": 222.03375084186092
+  },
+  "survey_count": 12,
+  "limitations": [
+    "фиксированная экспоненциальная плотность без космической погоды",
+    "UT1≈UTC и ECI средней даты без полного преобразования ITRF/ICRF",
+    "масса/площадь/CD и ориентация относятся к допущениям, не к сертифицированной платформе",
+    "один пролёт не доказывает повторяемость и безопасность на много суток"
+  ]
+}

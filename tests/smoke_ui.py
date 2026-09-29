@@ -28,8 +28,10 @@ assert [w.mode.itemText(i) for i in range(w.mode.count())]==['Без управ�
 assert w.result.r_eci_km.shape==(181,100,3)
 assert w.study_record['pair_count']==4950
 assert w.study_record['horizon_s'][1]>5000
-assert 'подходящий пассивный вариант не найден' in w.status.text()
-assert 'Ожидаемый' not in w.expected_step.text() and '1.972°' in w.expected_step.text()
+assert 'часть условий' in w.status.text()
+assert 'ожидаемый' not in w.metrics.text().lower()
+assert 'порог модели' not in w.metrics.text().lower()
+assert '10 с' in w.pass_badge.text() and '2°: 0 с' in w.pass_badge.text()
 assert 'атмосферное сопротивление' in w.model_summary.text()
 assert 'Минимум между КА сейчас' in w.safety_badge.text()
 assert 'Внешняя сторона: 20.000°' in w.metrics.text()
@@ -53,6 +55,12 @@ chief=w.result.r_eci_km[w.time_slider.value(),0,0]
 assert abs(close.mean()-chief)<1e-8
 w.view.setCurrentIndex(2)
 assert np.diff(w.space.axes.get_xlim())[0]>10000
+w.view.setCurrentIndex(3)
+fixed=np.array(w.space.axes.get_xlim())
+w.time_slider.setValue(110)
+assert np.allclose(w.space.axes.get_xlim(),fixed)
+w.view.setCurrentIndex(1)
+assert not np.allclose(w.space.axes.get_xlim(),close)
 w.view.setCurrentIndex(0)
 assert np.allclose(w.space.axes.get_xlim(),local)
 for n in (2,3):
@@ -62,9 +70,27 @@ for n in (2,3):
     assert w.study_record['pair_count']==n*n*(n*n-1)//2
     assert w.elements_table.rowCount()==n*n
     w.time_slider.setValue(0)
-    assert 'Сетка сейчас' in w.observable_badge.text()
+    assert 'Наблюдаемый квадрат сейчас' in w.observable_badge.text()
     w.time_slider.setValue(90)
     assert w.timeline.eligible.shape==(181,)
+    if n==2:
+        assert '−55…25 с' not in w.pass_badge.text()  # ASCII minus is used by the numeric formatter.
+        assert '-55…25 с (80 с)' in w.pass_badge.text()
+        assert 'наблюдаемый квадрат сейчас: да' in w.observable_badge.text().lower()
+        assert 'Полный виток: орбиты' in w.orbit_badge.text()
+        original=w.study_record['full_orbit_ok']
+        w.study_record['full_orbit_ok']=False
+        w.study_record['full_orbit_violations']=['контрольная недопустимая орбита']
+        w.update_frame()
+        assert 'контрольная недопустимая орбита' in w.orbit_badge.text()
+        assert '-55…25 с (80 с)' in w.pass_badge.text()
+        assert w.timeline.eligible[90]
+        w.study_record['full_orbit_ok']=original
+        w.study_record['full_orbit_violations']=[]
+        w.update_frame()
+        w.time_slider.setValue(96)
+        assert 'наблюдаемый квадрат сейчас: нет' in w.observable_badge.text().lower()
+        assert '-55…25 с (80 с)' in w.pass_badge.text()
 w.grid_size.setValue(10);ready(10,20)
 w.time_slider.setValue(90);w.toggle_play()
 start=time.perf_counter()

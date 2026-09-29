@@ -1,7 +1,7 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "model_id": "passive-central-J2-exponential-drag-inverse-v2",
-  "model_fingerprint_sha256": "41482a990cc26250999e3862b056d79bdbbec5e37f33c3cbe36e0090d1780f9f",
+  "model_fingerprint_sha256": "4d65ecf280040bbd601647b3020e9d2d158b906d6207a956666b87aaec95d01a",
   "config": {
     "schema_version": 1,
     "model_id": "passive-central-J2-exponential-drag-inverse-v2",
@@ -220,9 +220,13 @@
       700.0000000000027
     ],
     "period_spread_s": 107.01702108799327,
-    "max_epoch_relative_speed_km_s": 0.26553344072666424
+    "max_epoch_relative_speed_km_s": 0.26553344072666063
   },
   "verified_acceptable": true,
+  "full_orbit_ok": true,
+  "full_orbit_violations": [],
+  "projection_violations": [],
+  "instrument_violations": [],
   "violations": [],
   "included_forces": [
     "центральное притяжение Земли",
@@ -242,21 +246,38 @@
       -450.0,
       450.0
     ],
+    "accepted_intervals_square": [
+      {
+        "start_s": -38.0,
+        "end_s": 25.0,
+        "duration_s": 63.0,
+        "min_outer_side_deg": 18.17568027064668,
+        "max_outer_side_deg": 20.384525294400838,
+        "min_true_neighbor_deg": 7.945920347383758,
+        "max_shape_errors": [
+          0.0735449586998784,
+          0.03601381821458461,
+          0.09980452156781583
+        ],
+        "max_point_error_steps": 0.09862737856507507,
+        "max_step_error": 0.07723389821773388
+      }
+    ],
     "accepted_intervals_1deg": [
       {
         "start_s": -38.0,
         "end_s": 25.0,
         "duration_s": 63.0,
-        "min_outer_side_deg": 18.17568027064664,
-        "max_outer_side_deg": 20.38452529440081,
-        "min_true_neighbor_deg": 7.945920347383527,
+        "min_outer_side_deg": 18.17568027064668,
+        "max_outer_side_deg": 20.384525294400838,
+        "min_true_neighbor_deg": 7.945920347383758,
         "max_shape_errors": [
-          0.07354495869987557,
-          0.03601381821458251,
-          0.09980452156780117
+          0.0735449586998784,
+          0.03601381821458461,
+          0.09980452156781583
         ],
-        "max_point_error_steps": 0.09862737856506536,
-        "max_step_error": 0.07723389821771966
+        "max_point_error_steps": 0.09862737856507507,
+        "max_step_error": 0.07723389821773388
       }
     ],
     "accepted_intervals_2deg": [
@@ -264,78 +285,80 @@
         "start_s": -38.0,
         "end_s": 25.0,
         "duration_s": 63.0,
-        "min_outer_side_deg": 18.17568027064664,
-        "max_outer_side_deg": 20.38452529440081,
-        "min_true_neighbor_deg": 7.945920347383527,
+        "min_outer_side_deg": 18.17568027064668,
+        "max_outer_side_deg": 20.384525294400838,
+        "min_true_neighbor_deg": 7.945920347383758,
         "max_shape_errors": [
-          0.07354495869987557,
-          0.03601381821458251,
-          0.09980452156780117
+          0.0735449586998784,
+          0.03601381821458461,
+          0.09980452156781583
         ],
-        "max_point_error_steps": 0.09862737856506536,
-        "max_step_error": 0.07723389821771966
+        "max_point_error_steps": 0.09862737856507507,
+        "max_step_error": 0.07723389821773388
       }
     ],
-    "longest_contiguous_duration_2deg_s": 60.0,
-    "longest_interval_2deg_s": [
+    "longest_contiguous_duration_square_s": 60.0,
+    "longest_contiguous_duration_2deg_display_s": 60.0,
+    "longest_contiguous_duration_2deg_s": 63.0,
+    "longest_interval_square_s": [
       -35.0,
       25.0
     ],
-    "accepted_2deg_metrics_on_1s_grid": {
+    "accepted_square_metrics_on_1s_grid": {
       "outer_side_range_deg": [
-        18.17568027064664,
-        20.38452529440081
+        18.17568027064668,
+        20.384525294400838
       ],
-      "minimum_elevation_deg": 52.78428963182368,
-      "minimum_true_neighbor_deg": 7.945920347383527,
+      "minimum_elevation_deg": 52.78428963182366,
+      "minimum_true_neighbor_deg": 7.945920347383758,
       "maximum_shape_errors": [
-        0.07354495869987557,
-        0.03601381821458251,
-        0.09980452156780117
+        0.0735449586998784,
+        0.03601381821458461,
+        0.09980452156781583
       ],
-      "maximum_point_error_steps": 0.09862737856506536,
-      "maximum_neighbor_step_error": 0.07723389821771966
+      "maximum_point_error_steps": 0.09862737856507507,
+      "maximum_neighbor_step_error": 0.07723389821773388
     },
-    "min_elevation_deg_over_window": -4.239783859244634,
+    "min_elevation_deg_over_window": -4.239783859244666,
     "min_elevation_each_satellite_deg": [
-      -1.929165442696983,
-      -2.9553580221859623,
-      -3.922300721987415,
-      -4.089349912376151,
-      -3.1370268177341596,
-      -2.0903292564080878,
-      -2.2720076066547876,
-      -3.3018777435478683,
-      -4.239783859244634
+      -1.9291654426970402,
+      -2.9553580221858957,
+      -3.922300721987377,
+      -4.089349912376113,
+      -3.137026817734109,
+      -2.090329256408113,
+      -2.272007606654756,
+      -3.301877743547846,
+      -4.239783859244666
     ],
-    "min_true_neighbor_deg_at_epoch": 9.177438021942809,
-    "min_true_neighbor_deg_over_window": 0.8128368066240402,
+    "min_true_neighbor_deg_at_epoch": 9.177438021942889,
+    "min_true_neighbor_deg_over_window": 0.8128368066231435,
     "max_shape_errors_over_window": [
-      0.4526304132710405,
-      0.12746191455853367,
-      0.27370846340768185
+      0.4526304132710329,
+      0.1274619145585317,
+      0.27370846340766053
     ],
-    "minimum_altitude_km": 672.4498200165117,
-    "maximum_altitude_km": 700.0,
+    "minimum_altitude_km": 672.449820016509,
+    "maximum_altitude_km": 699.9999999999982,
     "minimum_altitude_each_satellite_km": [
-      699.4298195938854,
-      691.6168366481706,
-      686.6955403303309,
-      678.415910794708,
-      683.4497050844739,
-      691.3198047968126,
+      699.4298195938836,
+      691.6168366481743,
+      686.6955403303327,
+      678.4159107947098,
+      683.4497050844757,
+      691.3198047968108,
       685.6157181511117,
-      677.6424334822304,
-      672.4498200165117
+      677.6424334822314,
+      672.449820016509
     ],
     "pair_count": 36,
     "closest_pair": {
       "pair": "3-8",
       "t_s": -450.0,
       "utc": "2026-09-27T23:52:30Z",
-      "distance_km": 107.68128112016323,
-      "latitude_deg": -0.026161001649095215,
-      "longitude_deg": 55.768992363218956,
+      "distance_km": 107.68128112016248,
+      "latitude_deg": -0.0261610016491154,
+      "longitude_deg": 55.768992363218985,
       "method": "узел"
     },
     "dangerous_event_count": 0,
@@ -352,28 +375,29 @@
     "pair_count": 36,
     "closest_pair": {
       "pair": "3-8",
-      "t_s": 1424.2570295247535,
+      "t_s": 1424.257029524741,
       "utc": "2026-09-28T00:23:44.257030Z",
-      "distance_km": 25.034892551500363,
-      "latitude_deg": 64.2363761688226,
-      "longitude_deg": -114.00928161248113,
+      "distance_km": 25.034892551515004,
+      "latitude_deg": 64.23637616882336,
+      "longitude_deg": -114.00928161248048,
       "method": "повторное интегрирование J₂+сопротивление"
     },
     "dangerous_event_count": 0,
-    "minimum_altitude_km": 548.3148516322344,
-    "maximum_altitude_km": 701.2564339062974,
+    "minimum_altitude_km": 548.3148516322372,
+    "maximum_altitude_km": 701.2564339063092,
     "sample_step_max_s": 5.0,
     "pair_refinement_step_s": 0.05,
     "pair_minima_file": "full_orbit_pair_minima.csv"
   },
   "sensitivity": {
     "same_initial_elements": true,
-    "max_position_difference_over_pass_km": 1.8107209976713627e-05,
-    "end_position_difference_max_km": 1.807171757389542e-05,
+    "max_position_difference_over_pass_km": 1.810721006053596e-05,
+    "end_position_difference_max_km": 1.8071717845428672e-05,
+    "accepted_duration_square_with_drag_s": 63.0,
     "accepted_duration_2deg_with_drag_s": 63.0,
     "accepted_duration_2deg_without_drag_s": 63.0,
-    "minimum_pair_with_drag_sample_km": 107.68128112016323,
-    "minimum_pair_without_drag_sample_km": 107.68128121806828
+    "minimum_pair_with_drag_sample_km": 107.68128112016248,
+    "minimum_pair_without_drag_sample_km": 107.68128121806842
   },
   "survey_count": 12,
   "limitations": [

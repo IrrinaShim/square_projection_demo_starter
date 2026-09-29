@@ -5,8 +5,10 @@ import unittest
 import numpy as np
 
 from orbit_study.drag_demo.audit import audit_one_pass
+from orbit_study.drag_demo.centered_projection import centered_initial_candidate, centered_metrics
 from orbit_study.drag_demo.run import HERE, model_fingerprint
-from orbit_study.drag_model import density_kg_m3, drag_acceleration_km_s2
+from orbit_study.drag_demo.search import initial_candidate, orbit_limits, prepare_config
+from orbit_study.drag_model import density_kg_m3, drag_acceleration_km_s2, integrate
 from orbit_study.model import reconstruct
 from square_demo.core import project
 from square_demo.drag_study import load_or_search
@@ -41,8 +43,10 @@ class DragStudyTests(unittest.TestCase):
         result=calculate_drag_case(c,candidate)
         self.assertEqual(result.r_eci_km.shape[1],100)
         self.assertEqual(audit["pair_count"],4950)
-        self.assertEqual(result.metadata["quality"]["longest_contiguous_duration_s"],0.)
+        self.assertEqual(result.metadata["quality"]["longest_contiguous_duration_s"],10.)
         self.assertFalse(audit["verified_acceptable"])
+        self.assertTrue(audit["full_orbit_ok"])
+        self.assertEqual(audit["instrument_duration_2deg_s"],0.)
         self.assertGreater(audit["closest_pair"]["distance_km"],1.02)
         self.assertEqual(audit["horizon_s"][0],0.)
         self.assertGreater(audit["horizon_s"][1],5000.)
@@ -100,6 +104,29 @@ class DragStudyTests(unittest.TestCase):
         self.assertEqual(cfg["observer"]["latitude_deg"],26.)
         self.assertIn("новый",source)
         self.assertGreater(np.max(np.abs(first["states"]-second["states"])),1.)
+
+    def test_resolution_is_separate_from_square(self):
+        config=prepare_config(self.saved["config"])
+        config["orbit"]["altitude_km"]=630.
+        config["angular_side_deg"]=1.8183029644518331
+        candidate=initial_candidate(config,2,config["angular_side_deg"],0.,.03,0.)
+        result=calculate_drag_case(config,candidate)
+        epoch=int(np.argmin(abs(result.t_s)))
+        self.assertTrue(result.metadata["observability"]["eligible"][epoch])
+        self.assertFalse(result.metadata["observability"]["resolution_ok"][epoch])
+        self.assertGreater(result.metadata["quality"]["longest_contiguous_duration_s"],0.)
+
+    def test_centered_target_recomputes_states_but_fails_orbit_limits(self):
+        config=prepare_config(self.saved["config"])
+        config["angular_side_deg"]=20.
+        candidate=centered_initial_candidate(config,10,20.)
+        states=integrate(candidate["states"],np.array([0.]),config,2.)
+        metrics=centered_metrics(states,np.array([0.]),config,candidate)
+        self.assertLess(np.max(abs(metrics["image"][0]-candidate["target"])),1e-12)
+        self.assertGreater(metrics["min_true_neighbor_deg"][0],2.)
+        limits,failures=orbit_limits(candidate,config)
+        self.assertLess(limits["perigee_altitude_range_km"][0],500.)
+        self.assertTrue(failures)
 
 
 if __name__=="__main__": unittest.main()

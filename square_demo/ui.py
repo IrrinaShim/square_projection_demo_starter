@@ -19,7 +19,6 @@ from PySide6.QtWidgets import (QApplication, QComboBox, QDoubleSpinBox, QFileDia
 
 from .drag_provider import calculate_drag_case
 from .drag_study import load_or_search
-from .grid import expected_neighbor_angle_deg
 from .long_report import create_long_report
 
 
@@ -93,7 +92,6 @@ class DemoWindow(QMainWindow):
         self.scenario=None
         self.study_record=None
         self.study_data=None
-        self.window_model_valid=False
         self._grid_artists={}
         self._space_artists=None
         self._executor=ThreadPoolExecutor(max_workers=1,thread_name_prefix="orbit-search")
@@ -124,6 +122,7 @@ class DemoWindow(QMainWindow):
         self.view.addItem("3D: локальная система центра группы","local")
         self.view.addItem("3D: инерциальная система — приблизить группу","eci_close")
         self.view.addItem("3D: инерциальная система — Земля целиком","eci_earth")
+        self.view.addItem("3D: инерциальная система — неподвижная камера","eci_fixed")
         self.view.currentIndexChanged.connect(self.update_frame)
         top.addWidget(self.view,3)
 
@@ -141,8 +140,6 @@ class DemoWindow(QMainWindow):
         self.angular_side.setValue(20)
         self.angular_side.setSuffix(" °")
         cf.addRow("Внешняя сторона (цель)",self.angular_side)
-        self.expected_step=QLabel()
-        cf.addRow("Ожидаемый шаг соседей",self.expected_step)
         groups.addWidget(config,2)
         observer=QGroupBox("Наблюдатель")
         of=QFormLayout(observer)
@@ -178,7 +175,7 @@ class DemoWindow(QMainWindow):
         self.model_details.setVisible(False)
         self.model_button.toggled.connect(self.model_details.setVisible)
         ml.addWidget(self.model_details)
-        self.model_details.setText("Научный порог истинного угла соседей: 2°.")
+        self.model_details.setText("Разрешение прибора: отдельный исследовательский сценарий с порогом истинного угла соседей 2°; в критерий квадратности не входит.")
         groups.addWidget(model,2)
         self.grid_size.valueChanged.connect(self.calculate_current)
         self.angular_side.valueChanged.connect(self.calculate_current)
@@ -237,7 +234,7 @@ class DemoWindow(QMainWindow):
         self.time_slider=QSlider(Qt.Orientation.Horizontal)
         self.time_slider.valueChanged.connect(self.update_frame)
         self.timeline=ObservableTimeline()
-        self.timeline.setToolTip("Зелёные участки: сетка удовлетворяет условиям, и модель плотности применима на всём показанном окне")
+        self.timeline.setToolTip("Зелёные участки: вся сетка удовлетворяет форме, размеру и видимости на показанном пролёте")
         time_column=QVBoxLayout()
         time_column.setSpacing(0)
         time_column.addWidget(self.time_slider)
@@ -256,6 +253,12 @@ class DemoWindow(QMainWindow):
         self.observable_badge=QLabel()
         self.observable_badge.setWordWrap(True)
         root.addWidget(self.observable_badge)
+        self.pass_badge=QLabel()
+        self.pass_badge.setWordWrap(True)
+        root.addWidget(self.pass_badge)
+        self.orbit_badge=QLabel()
+        self.orbit_badge.setWordWrap(True)
+        root.addWidget(self.orbit_badge)
         self.safety_badge=QLabel()
         self.safety_badge.setWordWrap(True)
         root.addWidget(self.safety_badge)
@@ -277,7 +280,9 @@ class DemoWindow(QMainWindow):
         self.scenario=None
         self.study_record=None
         self.study_data=None
-        self.window_model_valid=False
+        for badge in (self.observable_badge,self.pass_badge,self.orbit_badge,
+                      self.safety_badge,self.metrics,self.geometry,self.note):
+            badge.clear()
         self._grid_artists={}
         self._space_artists=None
         self.timeline.set_result(None,None)
@@ -315,7 +320,6 @@ class DemoWindow(QMainWindow):
     def calculate_current(self,*_):
         self._generation+=1
         if self._cancel_event is not None: self._cancel_event.set()
-        self.expected_step.setText(f"{expected_neighbor_angle_deg(self.grid_size.value(),self.angular_side.value()):.3f}°; порог 2° в модели")
         self._debounce.stop()
         self._clear_result("Параметры изменены. Выполняется подбор и проверка орбит…")
         if self.mode.currentData()=="controlled":
@@ -393,25 +397,25 @@ class DemoWindow(QMainWindow):
         density_range=scenario["atmosphere"]["documented_range_km"]
         model_valid=(audit["minimum_altitude_km"]>=density_range[0] and
                      audit["maximum_altitude_km"]<=density_range[1])
-        self.window_model_valid=bool(model_valid and audit["verified_acceptable"])
-        self.window_valid_reason=("; ".join(audit["violations"]) if audit["violations"] else
-            "модель плотности выходит за область применимости на проверенном витке")
-        accepted=duration>0 and safe and model_valid and audit["verified_acceptable"]
-        state="выполнены частично: один пролёт" if accepted else "проверенного подходящего интервала нет"
+        full_orbit_ok=bool(audit["full_orbit_ok"] and safe and model_valid)
+        resolved_duration=audit["instrument_duration_2deg_s"]
+        accepted=duration>0 and full_orbit_ok and resolved_duration>0
+        state=("интервал квадрата, отдельный сценарий разрешения 2° и проверка витка пройдены" if accepted else
+               "часть условий демонстрационного случая не выполнена")
         problems=[]
-        if duration<=0: problems.append("не выполнены видимость, форма или шаг всей сетки")
+        if duration<=0: problems.append("не выполнены видимость, форма или внешний размер всей сетки")
         if not safe: problems.append("порог сближения нарушен")
         if not model_valid: problems.append(f"высота {audit['minimum_altitude_km']:.0f}…{audit['maximum_altitude_km']:.0f} км выходит за область плотности {density_range[0]:g}…{density_range[1]:g} км")
         problems.extend(audit["violations"])
         problem_text=(" Нарушения: "+"; ".join(problems)+"." if problems else "")
-        self.status.setText(f"N={size}, внешняя сторона {side:g}°: {state}; {source}. Подходящий геометрический интервал {duration:g} с; минимум всех {audit['pair_count']} пар за полный виток {audit['closest_pair']['distance_km']:.3f} км.{problem_text} Многосуточная повторяемость не проверена.")
+        self.status.setText(f"N={size}, внешняя сторона {side:g}°: {state}; {source}. Интервал наблюдаемого квадрата {duration:g} с; минимум всех {audit['pair_count']} пар за полный виток {audit['closest_pair']['distance_km']:.3f} км.{problem_text} Многосуточная повторяемость не проверена.")
         self.status.setStyleSheet("background:#fff0d9;color:#805015;padding:5px;" if accepted else "background:#ffe3df;color:#8b241d;padding:5px;")
         observer=scenario["observer"]
         orbit=scenario["orbit"]
         self.orbit_parameters.setText(f"{result.metadata['reference_period_s']:.1f} с")
         self.epoch.setText(scenario["epoch_utc"])
         craft=scenario["spacecraft"]; atmosphere=scenario["atmosphere"]
-        self.model_details.setText(f"ECI средней даты, GMST≈{observer['greenwich_angle_at_zenith_deg']:.3f}° (UT1≈UTC); μ={orbit['mu_km3_s2']:g} км³/с²; J₂={orbit['j2']:.11f}. 16U: m={craft['mass_kg']:g} кг (допущение для этой группы), A={craft['effective_area_m2']:g} м², CD={craft['drag_coefficient']:g} (допущение), широкая грань к потоку. Плотность при 700 км {atmosphere['rho_reference_kg_m3']:.2e} кг/м³, H={atmosphere['scale_height_km']:g} км; приближённая модель. Локальное начало — центр {size*size} КА. Гармоники выше J₂, Солнце, Луна, световое давление и тяга не включены.")
+        self.model_details.setText(f"ECI средней даты, GMST≈{observer['greenwich_angle_at_zenith_deg']:.3f}° (UT1≈UTC); μ={orbit['mu_km3_s2']:g} км³/с²; J₂={orbit['j2']:.11f}. 16U: m={craft['mass_kg']:g} кг (допущение для этой группы), A={craft['effective_area_m2']:g} м², CD={craft['drag_coefficient']:g} (допущение), широкая грань к потоку. Плотность при 700 км {atmosphere['rho_reference_kg_m3']:.2e} кг/м³, H={atmosphere['scale_height_km']:g} км; приближённая модель. Локальное начало — центр {size*size} КА. Разрешение прибора при истинном угле соседей ≥2° исследуется отдельно от квадратности. Гармоники выше J₂, Солнце, Луна, световое давление и тяга не включены.")
         self.elements_table.setRowCount(size*size)
         self.elements_table.setVisible(self.elements_button.isChecked())
         for row,entry in enumerate(result.metadata["orbital_elements"]):
@@ -421,8 +425,7 @@ class DemoWindow(QMainWindow):
         self.time_slider.setRange(0,len(result.t_s)-1)
         self.time_slider.setValue(int(np.argmin(abs(result.t_s))))
         self.time_slider.blockSignals(False)
-        self.timeline.set_result(result.t_s,result.metadata["observability"]["eligible"]
-                                 &self.window_model_valid)
+        self.timeline.set_result(result.t_s,result.metadata["observability"]["eligible"])
         self.update_frame()
 
     def _toggle_elements(self,expanded):
@@ -489,22 +492,29 @@ class DemoWindow(QMainWindow):
         self._draw_space(k)
         obs=r.metadata["observability"]
         quality=r.metadata["quality"]
-        good=bool(obs["eligible"][k] and self.window_model_valid)
+        good=bool(obs["eligible"][k])
         longest=quality["longest_interval_s"]
         interval=(f"{longest[0]:g}…{longest[1]:g} с ({quality['longest_contiguous_duration_s']:.0f} с)" if quality["has_positive_duration_interval"] else "отсутствует")
         visible=obs["visibility_intervals_s"]
         vis_text=", ".join(f"{a:g}…{b:g} с" for a,b in visible) or "нет"
-        reason=obs['reasons'][k] if self.window_model_valid else self.window_valid_reason
-        self.observable_badge.setText(f"{'● Вся сетка приемлема сейчас' if good else '● Сетка сейчас неприемлема: '+reason}. Видимость всех КА: {vis_text}. Геометрический интервал пролёта: {interval}.")
+        reason=obs['reasons'][k]
+        self.observable_badge.setText(f"{'● Наблюдаемый квадрат сейчас: да' if good else '● Наблюдаемый квадрат сейчас: нет — '+reason}. Минимальный угол места {obs['min_elevation_deg'][k]:.2f}°. Видимость всех КА: {vis_text}.")
         self.observable_badge.setStyleSheet("background:#d9f4e3;color:#145b32;padding:5px;" if good else "background:#ffe3df;color:#8b241d;padding:5px;")
         audit=self.study_record
+        self.pass_badge.setText(f"Интервал наблюдаемого квадрата на пролёте: {interval}. Отдельный сценарий разрешения 2°: {audit['instrument_duration_2deg_s']:g} с.")
+        self.pass_badge.setStyleSheet("background:#d9f4e3;color:#145b32;padding:5px;" if quality["has_positive_duration_interval"] else "background:#ffe3df;color:#8b241d;padding:5px;")
+        orbit_ok=audit["full_orbit_ok"]
+        issues="; ".join(audit["full_orbit_violations"])
+        self.orbit_badge.setText("Полный виток: " + ("орбиты и все пары прошли принятые проверки." if orbit_ok else f"проверка не пройдена — {issues}."))
+        self.orbit_badge.setStyleSheet("background:#d9f4e3;color:#145b32;padding:5px;" if orbit_ok else "background:#fff0d9;color:#805015;padding:5px;")
         closest=audit["closest_pair"]
         threshold=audit["threshold_km"]
         self.safety_badge.setText(f"Минимум между КА сейчас: {r.min_pair_distance_km[k]:.3f} км. Минимум за проверенный интервал: {closest['distance_km']:.3f} км, пара {closest['pair']}, t={closest['t_s']:.1f} с, {closest['latitude_deg']:.1f}° / {closest['longitude_deg']:.1f}°. Порог: размеры КА + принятый запас = {threshold:g} км (условный). Горизонт проверки: {audit['horizon_s'][0]:g}…{audit['horizon_s'][1]:g} с; все {audit['pair_count']} пар.")
         self.safety_badge.setStyleSheet("background:#e7edf8;color:#1c3764;padding:5px;" if closest["distance_km"]>=threshold else "background:#fff0d9;color:#805015;padding:5px;")
         gm=r.metadata["grid_metrics"]
         errors=r.shape_errors[k]
-        self.metrics.setText(f"Внешняя сторона: {obs['outer_side_deg'][k]:.3f}° (цель {self.angular_side.value():g}°); ожидаемый истинный шаг: {expected_neighbor_angle_deg(self.grid_size.value(),self.angular_side.value()):.3f}°, фактический минимум: {gm['min_true_neighbor_angle_deg'][k]:.3f}°; научный порог 2°. Min угол места: {obs['min_elevation_deg'][k]:.2f}°. Ошибки формы: εb={errors[0]:.3f}, εd={errors[1]:.3f}, εγ={np.rad2deg(errors[2]):.2f}°; отклонение узлов {gm['point_error_steps'][k]:.3f} шага, неравномерность {gm['neighbor_step_error'][k]:.3f}.")
+        resolution=("да" if obs["resolution_ok"][k] else "нет")
+        self.metrics.setText(f"Внешняя сторона: {obs['outer_side_deg'][k]:.3f}° (цель {self.angular_side.value():g}°); истинный минимальный угол соседей: {gm['min_true_neighbor_angle_deg'][k]:.3f}°. Отдельный сценарий разрешения ≥2°: {resolution}. Ошибки формы: εb={errors[0]:.3f}, εd={errors[1]:.3f}, εγ={np.rad2deg(errors[2]):.2f}°; отклонение узлов {gm['point_error_steps'][k]:.3f} шага, неравномерность {gm['neighbor_step_error'][k]:.3f}.")
         sp=r.metadata["spatial_size_metrics"]
         corners=", ".join(f"{x:.2f}" for x in sp["corner_sides_km"][k])
         diagonals=", ".join(f"{x:.2f}" for x in sp["corner_diagonals_km"][k])
@@ -589,11 +599,12 @@ class DemoWindow(QMainWindow):
         else:
             xyz=r.r_eci_km
             labels=("X ECI, км","Y ECI, км","Z ECI, км")
-            if mode=="eci_close":
-                center=xyz[k,0]
+            if mode in ("eci_close","eci_fixed"):
+                center=xyz[k,0] if mode=="eci_close" else xyz[int(np.argmin(abs(r.t_s))),0]
                 radius=max(20.,float(np.max(np.linalg.norm(xyz-xyz[:,0:1],axis=2)))*.75)
                 bounds=[(c-radius,c+radius) for c in center]
-                if rebuild: ax.set_title("ECI: приближение к КА 0")
+                if rebuild: ax.set_title("ECI: камера следует за КА 0" if mode=="eci_close" else
+                                         "ECI: камера неподвижна у КА 0 в эпоху")
             else:
                 re=r.metadata["orbit_radius_km"]
                 u=np.linspace(0,2*np.pi,25); v=np.linspace(0,np.pi,13)

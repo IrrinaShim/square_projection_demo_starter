@@ -14,8 +14,8 @@ from square_demo.orbit_j2 import orbital_basis, state_to_elements
 
 
 def checked_geometry(states,times,config,size):
-    """Текущая drag-модель: старые критерии плюс допуск на внешний размер."""
-    metrics=geometry(states,times,config,size)
+    """Квадрат (0) и отдельные сценарии разрешения прибором (1, 2 градуса)."""
+    metrics=geometry(states,times,config,size,thresholds=(0.,1.,2.))
     target=np.tan(np.deg2rad(config["angular_side_deg"]))
     actual=np.tan(np.deg2rad(metrics["outer_side_deg"]))
     within=np.isfinite(actual)&(np.abs(actual/target-1)<=
@@ -113,7 +113,7 @@ def preview(candidate,config,step_s=None):
     times=np.arange(display["start_s"],display["end_s"]+step*.25,step)
     states=integrate(candidate["states"],times,config,min(step,display["integration_step_s"]))
     metrics=checked_geometry(states,times,config,candidate["N"])
-    accepted={key:intervals(metrics,float(key)) for key in ("1","2")}
+    accepted={key:intervals(metrics,float(key)) for key in ("0","1","2")}
     min_sep=np.inf
     r=states[:,:,0]
     for i in range(r.shape[1]-1):
@@ -121,6 +121,7 @@ def preview(candidate,config,step_s=None):
     heights=np.linalg.norm(r,axis=2)-config["orbit"]["earth_radius_km"]
     finite=metrics["shape_errors"][np.isfinite(metrics["shape_errors"]).all(axis=1)]
     return {"times_s":times,"states":states,"metrics":metrics,"intervals":accepted,
+        "best_duration_square_s":max((x["duration_s"] for x in accepted["0"]),default=0.),
         "best_duration_1deg_s":max((x["duration_s"] for x in accepted["1"]),default=0.),
         "best_duration_2deg_s":max((x["duration_s"] for x in accepted["2"]),default=0.),
         "minimum_pair_sample_km":min_sep,"minimum_altitude_km":float(np.min(heights)),
@@ -220,7 +221,7 @@ def search(config,size,side_deg,budget=None,cancel_event=None):
                     >=cfg["spacecraft"]["collision_radius_sum_km"]
                       +cfg["spacecraft"]["additional_safety_margin_km"])
         score=(bool(valid_height and valid_density and safe and not failures and safe_orbit),
-               result["best_duration_2deg_s"],result["best_duration_1deg_s"],
+               result["best_duration_square_s"],result["best_duration_2deg_s"],
                orbit_sample["sample_minimum_pair_km"] if orbit_sample else -1.,
                -result["maximum_point_error_steps"])
         rows.append({"parameters":candidate["parameters"],"score":score,
