@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (QApplication, QComboBox, QDoubleSpinBox, QFileDia
 
 from .drag_provider import calculate_drag_case
 from .drag_study import load_or_search
+from .long_report import create_long_report
 
 
 class Plot(FigureCanvasQTAgg):
@@ -178,7 +179,7 @@ class DemoWindow(QMainWindow):
         self.long_horizon.setDecimals(2)
         self.long_horizon.setValue(1.)
         technical.addWidget(self.long_horizon)
-        self.long_button=QPushButton("Проверить возможность анализа")
+        self.long_button=QPushButton("Сохранить отдельный отчёт")
         self.long_button.clicked.connect(self._choose_long_analysis_dir)
         technical.addWidget(self.long_button)
         self.elements_table=QTableWidget(0,7)
@@ -188,7 +189,7 @@ class DemoWindow(QMainWindow):
         self.elements_table.setFixedHeight(160)
         self.elements_table.setVisible(False)
         root.addWidget(self.elements_table)
-        self.long_status=QLabel("Дальнейшие пролёты рассчитываются только по отдельному запросу.")
+        self.long_status=QLabel("Долгосрочный расчёт не выполнен. Отдельный отчёт по запросу сохранит исходные данные и причину ограничения.")
         self.long_status.setWordWrap(True)
         root.addWidget(self.long_status)
 
@@ -267,8 +268,16 @@ class DemoWindow(QMainWindow):
         self.orbit_parameters.setText("—")
         self.epoch.setText("—")
         self.model_details.clear()
+        self.long_status.setText("Долгосрочный отчёт недоступен без выбранного расчёта.")
         for canvas in (self.proj,self.yoz,self.space):
             canvas.axes.clear()
+            canvas.axes.set_axis_off()
+            if canvas is self.space:
+                canvas.axes.text2D(.5,.5,"Нет рассчитанного случая",
+                    transform=canvas.axes.transAxes,ha="center",va="center")
+            else:
+                canvas.axes.text(.5,.5,"Нет рассчитанного случая",
+                    transform=canvas.axes.transAxes,ha="center",va="center")
             canvas.draw_idle()
 
     def calculate_current(self,*_):
@@ -303,6 +312,7 @@ class DemoWindow(QMainWindow):
         self.elements_button.setEnabled(True)
         self.export_button.setEnabled(True)
         self.long_button.setEnabled(True)
+        self.long_status.setText("Долгосрочный расчёт не выполнен. Отдельный отчёт по запросу сохранит исходные данные и причину ограничения.")
         duration=result.metadata["quality"]["longest_contiguous_duration_s"]
         safe=audit["closest_pair"]["distance_km"]>=audit["threshold_km"]
         density_range=scenario["atmosphere"]["documented_range_km"]
@@ -359,20 +369,18 @@ class DemoWindow(QMainWindow):
 
     def _choose_long_analysis_dir(self):
         if self.result is None: return
-        self.start_long_analysis()
+        folder=QFileDialog.getExistingDirectory(self,"Папка отдельного отчёта",
+            str(Path("orbit_study/user_runs").resolve()))
+        if folder: self.start_long_analysis(folder)
 
     def start_long_analysis(self,output_parent=None):
         if self.result is None: return
-        elements=self.result.metadata["orbital_elements"]
-        radius=self.scenario["orbit"]["earth_radius_km"]
-        low=min(entry["a_km"]*(1-entry["e"])-radius for entry in elements)
-        high=max(entry["a_km"]*(1+entry["e"])-radius for entry in elements)
-        domain=self.scenario["atmosphere"]["documented_range_km"]
-        if low<domain[0] or high>domain[1]:
-            reason=f"оскул. высоты за виток {low:.0f}…{high:.0f} км выходят за диапазон плотности {domain[0]:g}…{domain[1]:g} км"
-        else:
-            reason="для этого набора не выполнены многосуточное распространение и проверка всех пар"
-        self.long_status.setText(f"Запрос на {self.long_horizon.value():g} сут. отклонён: {reason}. Старые результаты J₂ не используются как проверка новой модели.")
+        try:
+            saved=create_long_report(self.scenario,self.study_data,self.study_record,
+                                     self.result,self.long_horizon.value(),output_parent)
+            self.long_status.setText(f"Отдельный отчёт: {saved['folder']}. Многосуточный расчёт не выполнен: {saved['reason']}")
+        except (ValueError,OSError) as exc:
+            self.long_status.setText(f"Отчёт не сохранён: {exc}")
 
     def toggle_play(self):
         if self.result is None: return
@@ -428,6 +436,7 @@ class DemoWindow(QMainWindow):
     def _draw_grid(self,canvas,points,target,all_points,title,xlabel,ylabel):
         ax=canvas.axes
         ax.clear()
+        ax.set_axis_on()
         ids=np.asarray(self.result.metadata["grid_indices"])
         size=len(ids)
         colors=plt.get_cmap("viridis",size)
@@ -472,6 +481,7 @@ class DemoWindow(QMainWindow):
         r=self.result
         ax=self.space.axes
         ax.clear()
+        ax.set_axis_on()
         mode=self.view.currentData()
         if mode=="local":
             xyz=r.rho_oso_km
