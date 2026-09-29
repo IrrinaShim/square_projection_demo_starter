@@ -1,0 +1,205 @@
+{
+  "historical_HCW": {
+    "trial": {
+      "historical_shape_visibility_only_s": {
+        "start_s": -60.0,
+        "end_s": 60.0,
+        "duration_s": 120.0
+      },
+      "same_trajectory_with_target_size_10pct_s": {
+        "start_s": -35.0,
+        "end_s": 30.0,
+        "duration_s": 65.0
+      },
+      "outer_side_at_epoch_deg": 1.8183029644518407,
+      "initial_relative_velocities_m_s": [
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ],
+      "initial_ranges_km": [
+        630.0,
+        630.0,
+        630.0
+      ]
+    },
+    "fitted": {
+      "historical_shape_visibility_only_s": {
+        "start_s": -215.0,
+        "end_s": 210.0,
+        "duration_s": 425.0
+      },
+      "same_trajectory_with_target_size_10pct_s": {
+        "start_s": -35.0,
+        "end_s": 35.0,
+        "duration_s": 70.0
+      },
+      "outer_side_at_epoch_deg": 1.818302964451816,
+      "initial_relative_velocities_m_s": [
+        [
+          -42.13674847304563,
+          -0.752240099711902,
+          -0.12064783789609013
+        ],
+        [
+          -46.796916439860716,
+          -1.7378867053137699,
+          0.7864402667005318
+        ],
+        [
+          -4.648837869523803,
+          -0.9602004151257856,
+          -0.012349560571212349
+        ]
+      ],
+      "initial_ranges_km": [
+        629.8382597242263,
+        629.8423194255787,
+        630.0363342365159
+      ]
+    }
+  },
+  "current_independent_J2_drag": {
+    "N2_side1.8183_alt630": {
+      "file": "orbit_study/optimizer_results/0fcdbf23a55e71275bb6/best.json",
+      "one_pass_square_s": 88.0,
+      "one_pass_resolution_2deg_s": 0.0,
+      "orbital_limits": {
+        "a_range_km": [
+          6990.9515015624565,
+          7001.0
+        ],
+        "e_range": [
+          7.850462293418876e-17,
+          0.0171578849912764
+        ],
+        "i_range_deg": [
+          97.8,
+          97.85888619017477
+        ],
+        "perigee_altitude_range_km": [
+          500.0015597190568,
+          629.9999999999991
+        ],
+        "apogee_altitude_range_km": [
+          630.0,
+          739.9014434058563
+        ],
+        "period_spread_s": 12.546643843971651,
+        "max_epoch_relative_speed_km_s": 0.15062871177708656
+      },
+      "full_orbit_pair_minimum_km": 16.452414629148276,
+      "full_orbit_max_normal_angle_deg": 0.16576486257893208,
+      "physical_violations": []
+    },
+    "N2_side20_alt700": {
+      "file": "orbit_study/optimizer_results/bf10b0221a1043e1cfa2/best.json",
+      "one_pass_square_s": 80.0,
+      "one_pass_resolution_2deg_s": 80.0,
+      "orbital_limits": {
+        "a_range_km": [
+          7015.859122530986,
+          7070.999999999996
+        ],
+        "e_range": [
+          1.6653345369377348e-16,
+          0.01275915952533704
+        ],
+        "i_range_deg": [
+          97.78681823337085,
+          98.7996185210369
+        ],
+        "perigee_altitude_range_km": [
+          555.3426567793222,
+          699.9999999999945
+        ],
+        "apogee_altitude_range_km": [
+          699.9999999999982,
+          739.9916901487122
+        ],
+        "period_spread_s": 69.08245229254135,
+        "max_epoch_relative_speed_km_s": 0.34135310692907916
+      },
+      "full_orbit_pair_minimum_km": 37.630000138655966,
+      "full_orbit_max_normal_angle_deg": 2.065365140761057,
+      "physical_violations": []
+    },
+    "N3_side20_alt700": {
+      "file": "orbit_study/optimizer_results/4338821388229f1c53aa/best.json",
+      "one_pass_square_s": 63.0,
+      "one_pass_resolution_2deg_s": 63.0,
+      "orbital_limits": {
+        "a_range_km": [
+          6985.48784478571,
+          7070.999999999996
+        ],
+        "e_range": [
+          1.6653345369377348e-16,
+          0.009448308761440746
+        ],
+        "i_range_deg": [
+          97.8,
+          98.71535660146209
+        ],
+        "perigee_altitude_range_km": [
+          548.486798778883,
+          699.9999999999945
+        ],
+        "apogee_altitude_range_km": [
+          680.488890792537,
+          699.9999999999982
+        ],
+        "period_spread_s": 107.01702108798781,
+        "max_epoch_relative_speed_km_s": 0.26553344072666063
+      },
+      "full_orbit_pair_minimum_km": 25.034892551515004,
+      "full_orbit_max_normal_angle_deg": 2.026335618827804,
+      "physical_violations": []
+    },
+    "N10_side20_alt700": {
+      "file": "orbit_study/optimizer_results/ffcf6dd1184f55b05c72/best.json",
+      "one_pass_square_s": 12.0,
+      "one_pass_resolution_2deg_s": 0.0,
+      "orbital_limits": {
+        "a_range_km": [
+          7012.689669719475,
+          7071.000000000001
+        ],
+        "e_range": [
+          1.2412670766236366e-16,
+          0.013519242730018546
+        ],
+        "i_range_deg": [
+          97.78523153608633,
+          98.86830623217234
+        ],
+        "perigee_altitude_range_km": [
+          546.8834158842437,
+          700.0
+        ],
+        "apogee_altitude_range_km": [
+          700.0000000000027,
+          743.8932671469884
+        ],
+        "period_spread_s": 73.0450312340381,
+        "max_epoch_relative_speed_km_s": 0.3499944886702639
+      },
+      "full_orbit_pair_minimum_km": 4.254433128799015,
+      "full_orbit_max_normal_angle_deg": 2.0548471799789394,
+      "physical_violations": []
+    }
+  },
+  "note": "HCW 425 s is shape+visibility only; its same trajectory lasts 70 s with ±10% external-size tolerance. HCW does not represent four independently propagated physical orbits."
+}

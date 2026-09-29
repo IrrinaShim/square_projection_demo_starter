@@ -20,6 +20,7 @@ from orbit_study.drag_demo.search import checked_geometry, orbit_limits, prepare
 from orbit_study.drag_model import integrate
 from orbit_study.evaluate import intervals
 from orbit_study.model import reconstruct
+from orbit_study.neighbor_orbits import blend_on_rays, circular_neighbor_states
 from orbit_study.orbit_direction import MAX_NORMAL_ANGLE_DEG, audit_orbit_normals
 from square_demo.core import image_frame, observer_eci, project, spatial_size_metrics, zenith_orbit
 from square_demo.grid import corner_indices, grid_indices
@@ -29,7 +30,7 @@ from square_demo.providers import _fit_initial_states
 ROOT=Path(__file__).resolve().parent
 BASE=ROOT/"drag_demo"/"config.json"
 RESULTS=ROOT/"optimizer_results"
-VERSION=3
+VERSION=5
 
 
 def configuration(size,side_deg,latitude_deg=25.3026,longitude_deg=51.5132,
@@ -122,6 +123,82 @@ def rotation_seed(config,size):
     return _candidate(states,target,size,config,"равнодальный вращательный seed")
 
 
+def neighboring_seed(config,size):
+    """Точная проекция и собственные близкие круговые орбиты всех КА."""
+    chief,_,robs,rays,target,_=geometry_at_epoch(config,size)
+    states=circular_neighbor_states(chief,robs,rays,config["orbit"]["mu_km3_s2"])
+    return _candidate(states,target,size,config,"точные лучи + соседние круговые орбиты")
+
+
+def neighboring_candidate(proposal,base,config):
+    """Конструировать допустимое эпохальное состояние *до* прямого расчёта.
+
+    Предложение и круговая база лежат на тех же лучах. Для скалярной
+    дальности и трёх скоростей каждого КА ищется допустимый отрезок между
+    ними. Повторная проверка на пролёте и витке остаётся обязательной.
+    """
+    def permitted(states):
+        try:
+            candidate=_candidate(states,proposal["target"],proposal["N"],config,"проверка")
+            _,failures=orbit_limits(candidate,config)
+            direction=audit_orbit_normals(states[None],np.array([0.]))
+            return not failures and direction["ok"]
+        except (ValueError,FloatingPointError):
+            return False
+    states,fraction=blend_on_rays(base["states"],proposal["states"],permitted)
+    result=_candidate(states,proposal["target"],proposal["N"],config,
+        proposal["parameters"]["source"]+f"; доля допустимой поправки {fraction:.5f}")
+    return result
+
+
+def inverse_refine(seed,config,base,half_window_s=150.,regularization=.03):
+    """Одна нелинейная обратная итерация по нескольким узлам пролёта.
+
+    Четыре переменные ведомого: дальность по фиксированному лучу и три
+    компоненты скорости в ОСО эпохи. Якобиан получен повторным независимым
+    распространением J2+drag, а не только аналитической ХКУ-матрицей.
+    """
+    size=seed["N"]
+    chief,b,robs,rays,target,_=geometry_at_epoch(config,size)
+    times=np.linspace(-half_window_s,half_window_s,11)
+    states=seed["states"]
+    integration_step=config["display"]["integration_step_s"]
+    nominal=integrate(states,times,config,integration_step)
+    observer=observer_eci(times,0.,config["orbit"]["earth_radius_km"],config["observer"])
+    basis=orbital_basis(nominal[:,0])
+    image,valid,_=project(nominal[:,:,0],observer,basis,config["orbit"]["earth_radius_km"])
+    if not np.all(valid):return seed
+    perturb=np.array([1.,.001,.001,.001])
+    variants=np.repeat(states[None],4,axis=0)
+    variants[0,:,0]+=rays
+    for k in range(3):variants[k+1,:,1]+=perturb[k+1]*b[:,k]
+    propagated=integrate(variants.reshape(-1,2,3),times,config,integration_step)
+    propagated=propagated.reshape(len(times),4,len(states),2,3)
+    altered=np.empty((len(times),4,len(states),2))
+    for k in range(4):
+        altered[:,k],_,_=project(propagated[:,k,:,0],observer,basis,
+            config["orbit"]["earth_radius_km"])
+    jac=(altered-image[:,None])/perturb[None,:,None,None]
+    # Physical scales make the regularizer comparable between km and km/s.
+    scales=np.array([15.,.015,.015,.015])
+    update=np.zeros((len(states),4))
+    for j in range(1,len(states)):
+        matrix=jac[:,:,j,:].transpose(0,2,1).reshape(-1,4)*scales
+        rhs=(target[j]-image[:,j]).reshape(-1)
+        ridge=regularization*np.linalg.norm(matrix,axis=0).max()
+        solution=np.linalg.lstsq(np.vstack((matrix,ridge*np.eye(4))),
+            np.r_[rhs,np.zeros(4)],rcond=None)[0]*scales
+        update[j,0]=np.clip(solution[0],-30.,30.)
+        update[j,1:]=np.clip(solution[1:],-.03,.03)
+    proposal=states.copy()
+    proposal[:,0]+=update[:,0,None]*rays
+    proposal[:,1]+=update[:,1:]@b.T
+    proposal[0]=chief
+    candidate=_candidate(proposal,target,size,config,
+        seed["parameters"]["source"]+" + нелинейная обратная итерация")
+    return neighboring_candidate(candidate,base,config)
+
+
 def archived_seed(config,size):
     folder=ROOT/"drag_demo"/"results"/(f"n{size}" if size in (2,3) else "")
     path=folder/"case.json"
@@ -180,7 +257,11 @@ def _near_miss(metrics,config):
         terms.extend((metrics["point_error_steps"]/tol["max_point_error_steps"],
                       metrics["neighbor_step_error"]/tol["max_neighbor_step_error"]))
     worst=np.nanmax(np.nan_to_num(np.stack(terms),nan=100.,posinf=100.),axis=0)
-    return float(np.min(worst))
+    # The epoch image is exact for every candidate. Taking min(worst) would
+    # therefore measure only that single frame and fail to rank equal-length
+    # orbits by how well they preserve the image over the working window.
+    window=abs(metrics["times_s"])<=150.
+    return float(np.percentile(worst[window],75))
 
 
 def survey(candidate,config,step_s=None):
@@ -325,22 +406,33 @@ def optimize(config,size,budget=16,output_root=RESULTS,resume=True,cancel_event=
     cfg=prepare_config(config);cfg["angular_side_deg"]=float(config["angular_side_deg"])
     key=signature(cfg,size);folder=Path(output_root)/key;folder.mkdir(parents=True,exist_ok=True)
     history_file=folder/"candidates.jsonl";best_file=folder/"best.json"
+    if not resume:
+        history_file.write_text("",encoding="utf-8")
+        best_file.unlink(missing_ok=True)
     history=[]
     if resume and history_file.exists():
         history=[json.loads(line) for line in history_file.read_text(encoding="utf-8").splitlines() if line]
     seeds=[]
+    neighbor=neighboring_seed(cfg,size)
     if resume and best_file.exists():
         old=json.loads(best_file.read_text(encoding="utf-8"))
         if old.get("signature")==key:
             old_candidate=old["candidate"]
             states=np.asarray(old_candidate["initial_states_eci_km_km_s"],dtype=float)
             _,_,_,_,target,_=geometry_at_epoch(cfg,size)
-            seeds.append(_candidate(states,target,size,cfg,"продолжение сохранённого поиска"))
+            seeds.append(neighboring_candidate(_candidate(states,target,size,cfg,
+                "продолжение сохранённого поиска"),neighbor,cfg))
     archived=archived_seed(cfg,size)
-    if archived is not None:seeds.append(archived)
-    seeds.append(rotation_seed(cfg,size))
+    if archived is not None:
+        archival_audit=archived["archive_audit"]
+        archived=neighboring_candidate(archived,neighbor,cfg)
+        archived["archive_audit"]=archival_audit
+        seeds.append(archived)
+    seeds.append(neighbor)
+    seeds.append(neighboring_candidate(rotation_seed(cfg,size),neighbor,cfg))
     for reg,window in ((.1,120.),(1.,150.),(10.,240.)):
-        try:seeds.append(corner_seed_hcw(cfg,size,reg,window))
+        try:
+            seeds.append(neighboring_candidate(corner_seed_hcw(cfg,size,reg,window),neighbor,cfg))
         except (ValueError,np.linalg.LinAlgError) as exc:
             record={"iteration":len(history)+1,"stage":"начальное ХКУ-приближение",
                 "source":f"reg={reg:g}, window={window:g}s","score":[False,0.,-1e6],
@@ -378,7 +470,16 @@ def optimize(config,size,budget=16,output_root=RESULTS,resume=True,cancel_event=
         if progress:progress(f"{count}/{budget}: {stage}; квадрат {metrics['duration_square_s']:g} с; лучший {best[1]['duration_square_s']:g} с")
     for seed in seeds:
         if count>=budget:break
-        evaluate(seed,"углы ХКУ / ранее проверенный seed")
+        evaluate(seed,"точные лучи / соседние орбиты / ХКУ seed")
+    if count<budget:
+        origin=best[0]
+        refined=inverse_refine(origin,cfg,neighbor)
+        for gain in (.05,.15,.4,1.):
+            if count>=budget:break
+            proposal=_candidate(origin["states"]+gain*(refined["states"]-origin["states"]),
+                origin["target"],size,cfg,
+                f"нелинейная обратная итерация J2+drag; шаг {gain:g}")
+            evaluate(neighboring_candidate(proposal,neighbor,cfg),"обратная итерация с длиной шага")
     if best is None:raise ValueError("Не удалось построить ни одного кандидата")
     rng=np.random.default_rng(20260929+len(history))
     coeff=np.zeros((4,4));step=np.array([20.,.02,.02,.02])
@@ -392,11 +493,11 @@ def optimize(config,size,budget=16,output_root=RESULTS,resume=True,cancel_event=
             index=interior[(count//5)%len(interior)]
             correction=np.zeros(4)
             correction[col]=direction*step[col]*.5
-            candidate=perturb(selected,cfg,coeff,{index:correction})
+            candidate=neighboring_candidate(perturb(selected,cfg,coeff,{index:correction}),neighbor,cfg)
             stage=f"индивидуальная поправка КА {index}"
         else:
             trial_coeff=coeff.copy();trial_coeff[row,col]+=direction*step[col]
-            candidate=perturb(selected,cfg,trial_coeff)
+            candidate=neighboring_candidate(perturb(selected,cfg,trial_coeff),neighbor,cfg)
             stage="совместные углы и гладкое поле"
         old_score=best[1]["score"]
         evaluate(candidate,stage)
@@ -440,9 +541,9 @@ def optimize(config,size,budget=16,output_root=RESULTS,resume=True,cancel_event=
                        "приближённая плотность, без прогноза космической погоды",
                        "многосуточная повторяемость не проверена"]}
     selected_index=best_index
-    if selected["parameters"]["source"]=="ранее проверенный кандидат":
+    if selected["parameters"]["source"].startswith("ранее проверенный кандидат"):
         selected_index=next((i for i,row in enumerate(history)
-                             if row["source"]=="ранее проверенный кандидат"),best_index)
+                             if row["source"].startswith("ранее проверенный кандидат")),best_index)
     for i,row in enumerate(history):
         row["outcome"]=("selected" if i==selected_index and not checked["physical_violations"]
                         else "rejected")

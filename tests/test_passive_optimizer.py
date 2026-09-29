@@ -9,7 +9,9 @@ from unittest.mock import patch
 import numpy as np
 
 from orbit_study.passive_optimizer import (configuration, corner_seed_hcw,
-    geometry_at_epoch, load_cached, optimize, rotation_seed, survey, verify, _candidate)
+    geometry_at_epoch, load_cached, optimize, rotation_seed, neighboring_seed,
+    neighboring_candidate, survey, verify, _candidate)
+from orbit_study.drag_demo.search import orbit_limits
 from orbit_study.orbit_direction import audit_orbit_normals
 from square_demo.core import project
 from square_demo.grid import corner_indices, grid_indices
@@ -95,6 +97,30 @@ class PassiveOptimizerTests(unittest.TestCase):
             result2,_=optimize(cfg,2,budget=4,output_root=folder,resume=True)
             self.assertGreater(result2["survey_count_total"],result["survey_count_total"])
 
+    def test_construction_starts_inside_orbital_neighborhood(self):
+        for size,side,alt in ((2,1.818302964,630.),(2,20.,700.),(10,20.,700.)):
+            cfg=configuration(size,side,altitude_km=alt)
+            base=neighboring_seed(cfg,size)
+            self.assertEqual(orbit_limits(base,cfg)[1],[])
+            self.assertTrue(audit_orbit_normals(base["states"][None],np.array([0.]))["ok"])
+            image,valid,_=project(base["states"][None,:,0],
+                geometry_at_epoch(cfg,size)[2][None],
+                orbital_basis(base["states"][0][None]),cfg["orbit"]["earth_radius_km"])
+            self.assertTrue(valid.all())
+            self.assertLess(np.max(abs(image[0]-base["target"])),1e-12)
+            hcw=corner_seed_hcw(cfg,size,1.,150.)
+            constrained=neighboring_candidate(hcw,base,cfg)
+            self.assertEqual(orbit_limits(constrained,cfg)[1],[])
+            self.assertTrue(audit_orbit_normals(constrained["states"][None],np.array([0.]))["ok"])
+            reversed_states=base["states"].copy()
+            reversed_states[1,1]*=-1
+            reversed_proposal=_candidate(reversed_states,base["target"],size,cfg,
+                "контроль противоположной скорости")
+            constrained=neighboring_candidate(reversed_proposal,base,cfg)
+            self.assertTrue(audit_orbit_normals(constrained["states"][None],
+                np.array([0.]))["ok"])
+            self.assertGreater(np.dot(constrained["states"][1,1],base["states"][1,1]),0.)
+
     def test_cancel_before_first_propagation(self):
         cfg=configuration(2,20.)
         event=Event();event.set()
@@ -119,7 +145,7 @@ class PassiveOptimizerTests(unittest.TestCase):
             self.assertEqual(len(folders),1)
             self.assertFalse((folders[0]/"best.json").exists())
             rejected=json.loads((folders[0]/"rejected.json").read_text())
-            self.assertIn("нормали", " ".join(rejected["physical_violations"]))
+            self.assertTrue(rejected["physical_violations"])
 
 
 if __name__=="__main__":unittest.main()

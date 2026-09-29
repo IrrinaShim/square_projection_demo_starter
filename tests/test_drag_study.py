@@ -37,10 +37,10 @@ class DragStudyTests(unittest.TestCase):
     def test_saved_elements_and_pass(self):
         p=self.saved
         # Исторический отчёт использует прежний ключ модели; действующее
-        # приложение загружает повторно проверенный результат версии 3.
+        # приложение загружает новый независимо проверенный результат.
         self.assertNotEqual(p["model_fingerprint_sha256"],model_fingerprint())
         c,candidate,audit,source=load_or_search(10,20,2.)
-        states=reconstruct(p["elements_at_epoch"],c["orbit"]["mu_km3_s2"])
+        states=reconstruct(candidate["elements_at_epoch"],c["orbit"]["mu_km3_s2"])
         np.testing.assert_allclose(states,candidate["states"],atol=1e-7)
         result=calculate_drag_case(c,candidate)
         self.assertEqual(result.r_eci_km.shape[1],100)
