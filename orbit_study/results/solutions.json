@@ -19335,6 +19335,6 @@
     }
   },
   "model_version": "passive-j2-grid-2026-09-v1",
-  "physics_fingerprint_sha256": "a2badfc91bb7a500a83595cb573675fb2e043a3af9ce44a32c1adcfdfb592a78",
-  "solutions_fingerprint_sha256": "1af89a247b8577a72abdbe4178a7c00bf729eecf7580f290c471fcea128754dd"
+  "physics_fingerprint_sha256": "4b03d9b500f902bc179591914f043c659c46d96e596fd9a50f8fff6a00cdd08c",
+  "solutions_fingerprint_sha256": "11fedc1b74344b98654ad70e283ad65971024fa0e38fcbe44cd716dc1795e011"
 }

@@ -17,6 +17,10 @@ STUDY_ROOT = ROOT / "orbit_study"
 SOLUTIONS = STUDY_ROOT / "results" / "solutions.json"
 
 
+class CandidateUnavailable(ValueError):
+    """Для точной комбинации параметров нет сохранённого набора орбит."""
+
+
 def _same_mapping(saved, current, label):
     if set(saved) != set(current):
         raise ValueError(f"Исследование несовместимо: изменён набор параметров «{label}»")
@@ -30,7 +34,8 @@ def _same_mapping(saved, current, label):
             raise ValueError(f"Исследование несовместимо: {label}.{key}: сохранено {a}, сейчас {b}")
 
 
-def load_study_case(size, neighbor_angle_deg=2.0, solutions_path=SOLUTIONS):
+def load_study_case(size, neighbor_angle_deg=2.0, solutions_path=SOLUTIONS,
+                    outer_side_deg=None):
     """Возвращает сценарий, запись и общий протокол; без пересчёта орбит.
 
     При изменённой физике, эпохе или допусках сохранённые выводы не выдаются.
@@ -62,7 +67,15 @@ def load_study_case(size, neighbor_angle_deg=2.0, solutions_path=SOLUTIONS):
     _same_mapping(data["grid_tolerances"],base["grid_tolerances"],"сетка")
     record=data["solutions"].get(str(size))
     if record is None:
-        raise ValueError(f"Для N={size} в исследовании нет сохранённого варианта")
+        raise CandidateUnavailable(f"Для N={size} в исследовании нет сохранённого варианта")
+    saved_side=float(record["parameters"]["side_deg"])
+    if outer_side_deg is not None and not np.isclose(float(outer_side_deg),saved_side,
+                                                     rtol=0,atol=1e-9):
+        raise CandidateUnavailable(
+            f"Для N={size}, внешней стороны {float(outer_side_deg):g}° и шага "
+            f"{neighbor_angle_deg:g}° проверенного набора элементов нет. "
+            f"Сохранённый набор N={size} имеет сторону {saved_side:g}°; "
+            "требуется новый подбор и проверка.")
     if (int(record["N"])!=size or int(record["satellite_count"])!=size*size
             or record["grid_indices"]!=grid_indices(size).tolist()):
         raise ValueError("Исследование несовместимо: индексы или число КА изменились")

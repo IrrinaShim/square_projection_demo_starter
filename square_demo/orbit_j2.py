@@ -133,6 +133,39 @@ def orbital_basis(chief_states):
     return np.stack((ex,ey,ez),axis=-1)
 
 
+def centroid_relative_frame(states, mu, earth_radius, j2):
+    """Центр масс равновесных точек и вращающаяся ОСО КА 0.
+
+    B=[e_r,e_t,e_h] ориентирована по мгновенным r0,v0. Скорость в
+    координатах B равна B^T(v_j-v_c)+Bdot^T(r_j-r_c).
+    """
+    positions=states[:,:,0]
+    velocities=states[:,:,1]
+    center=positions.mean(axis=1)
+    center_velocity=velocities.mean(axis=1)
+    chief=states[:,0]
+    r,v=chief[:,0],chief[:,1]
+    acceleration=acceleration_j2(r,mu,earth_radius,j2)
+    radius=np.linalg.norm(r,axis=1)
+    ex=r/radius[:,None]
+    exdot=(v-ex*np.sum(ex*v,axis=1)[:,None])/radius[:,None]
+    h=np.cross(r,v)
+    hdot=np.cross(r,acceleration)
+    hnorm=np.linalg.norm(h,axis=1)
+    ez=h/hnorm[:,None]
+    ezdot=(hdot-ez*np.sum(ez*hdot,axis=1)[:,None])/hnorm[:,None]
+    ey=np.cross(ez,ex)
+    eydot=np.cross(ezdot,ex)+np.cross(ez,exdot)
+    basis=np.stack((ex,ey,ez),axis=-1)
+    basis_dot=np.stack((exdot,eydot,ezdot),axis=-1)
+    dr=positions-center[:,None,:]
+    dv=velocities-center_velocity[:,None,:]
+    local_position=np.einsum("nji,nsj->nsi",basis,dr)
+    local_velocity=(np.einsum("nji,nsj->nsi",basis,dv)
+                    +np.einsum("nji,nsj->nsi",basis_dot,dr))
+    return center,center_velocity,basis,local_position,local_velocity
+
+
 def earth_location(position, t_s, earth_rotation_rad_s, greenwich_angle_deg):
     """Геоцентрические широта и долгота подспутниковой точки, градусы."""
     x,y,z = np.asarray(position,dtype=float)

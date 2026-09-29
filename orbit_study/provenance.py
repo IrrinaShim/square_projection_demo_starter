@@ -25,10 +25,10 @@ def physics_fingerprint():
     functions = (
         orbit_j2.elements_to_state, orbit_j2.state_to_elements,
         orbit_j2.acceleration_j2, orbit_j2.rk4, orbit_j2.integrate,
-        orbit_j2.orbital_basis,
+        orbit_j2.orbital_basis, orbit_j2.centroid_relative_frame,
         core.observer_eci, core.image_frame, core.project,
         core.square_geometry, core.observability, core.visibility_summary,
-        core.assemble_absolute, providers.independent_j2,
+        core.assemble_absolute, core.spatial_size_metrics, providers.independent_j2,
         grid.grid_indices, grid.corner_indices, grid.grid_metrics,
         grid.grid_acceptance, model.make_candidate,
         evaluate.geometry, evaluate.intervals, evaluate.detailed,

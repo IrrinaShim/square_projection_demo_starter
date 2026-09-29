@@ -60,7 +60,10 @@ class TrajectoryResult:
                 raise ValueError(f"{name}: встречено NaN или бесконечность")
         if not np.isfinite(self.reference_orbit_eci_km).all():
             raise ValueError("reference_orbit_eci_km: нечисловые значения")
-        if not np.allclose(self.rho_oso_km[:, 0], 0, atol=1e-10):
+        if self.metadata.get("local_frame_origin") == "centroid":
+            if not np.allclose(np.mean(self.rho_oso_km,axis=1),0,atol=1e-9):
+                raise ValueError("Начало локальной системы должно быть в центре группы")
+        elif not np.allclose(self.rho_oso_km[:, 0], 0, atol=1e-10):
             raise ValueError("Индекс 0 должен быть опорным КА")
         if not np.isfinite(self.image_gnomonic[self.image_valid]).all():
             raise ValueError("В действительной проекции есть NaN")
@@ -80,6 +83,31 @@ class TrajectoryResult:
         if np.max(np.abs(self.dv_cumulative_m_s[1:] - self.dv_cumulative_m_s[:-1]
                          - np.linalg.norm(self.accel_oso_m_s2, axis=2) * np.diff(t)[:, None])) > 1e-7:
             raise ValueError("Delta v не согласовано с приложенным ускорением")
+
+
+def spatial_size_metrics(positions_eci_km, size):
+    """Размеры всей сетки в км; соседство задаётся постоянной индексной матрицей."""
+    from .grid import grid_indices
+    r=np.asarray(positions_eci_km)
+    ids=grid_indices(size)
+    edges=[]
+    for row in range(size):
+        for col in range(size):
+            if col+1<size: edges.append((ids[row,col],ids[row,col+1]))
+            if row+1<size: edges.append((ids[row,col],ids[row+1,col]))
+    e=np.asarray(edges,dtype=int)
+    neighbors=np.linalg.norm(r[:,e[:,0]]-r[:,e[:,1]],axis=2)
+    corners=corner_indices(size)
+    corner_sides=np.linalg.norm(r[:,corners]-r[:,np.roll(corners,-1)],axis=2)
+    corner_diagonals=np.linalg.norm(r[:,corners[:2]]-r[:,corners[2:]],axis=2)
+    maximum=np.zeros(len(r))
+    for i in range(r.shape[1]-1):
+        distances=np.linalg.norm(r[:,i+1:]-r[:,i:i+1],axis=2)
+        maximum=np.maximum(maximum,np.max(distances,axis=1))
+    return {"min_neighbor_km":np.min(neighbors,axis=1),
+            "max_neighbor_km":np.max(neighbors,axis=1),
+            "corner_sides_km":corner_sides,"corner_diagonals_km":corner_diagonals,
+            "max_pair_km":maximum}
 
 
 def zenith_orbit(t_s, zenith_s, orbit, observer):
@@ -348,8 +376,13 @@ def assemble(t, rho, accel, target, orbit, observer, zenith_s, metadata):
 def assemble_absolute(t, r, basis, robs, accel, target, orbit, metadata,
                       orbit_line, reference_period_s):
     """Единая геометрия GUI для HCW, CSV и абсолютных орбит с J₂."""
-    rho = np.einsum("nji,nsj->nsi",basis,r-r[:,0:1])
-    rho[:,0] = 0
+    if metadata.get("local_frame_origin") == "centroid":
+        center=np.mean(r,axis=1)
+        rho=np.einsum("nji,nsj->nsi",basis,r-center[:,None,:])
+        metadata["center_eci_km"]=center
+    else:
+        rho = np.einsum("nji,nsj->nsi",basis,r-r[:,0:1])
+        rho[:,0] = 0
     earth_radius = float(orbit["earth_radius_km"])
     min_altitude = float(np.min(np.linalg.norm(r,axis=2)-earth_radius))
     if min_altitude <= 0:
@@ -377,6 +410,8 @@ def assemble_absolute(t, r, basis, robs, accel, target, orbit, metadata,
                     max_rho_over_a=float(np.max(np.linalg.norm(rho,axis=2)) /
                                          (float(orbit["earth_radius_km"])+float(orbit["altitude_km"]))))
     target_yoz = float(orbit["altitude_km"])*target
+    if metadata.get("local_frame_origin") == "centroid":
+        target_yoz=target_yoz-np.mean(target_yoz,axis=0)
     result = TrajectoryResult(t, r, rho, robs, image, valid, elev, accel, dv,
                               errors, minpair, target, orbit_line, sides,diagonals,angles,target_yoz,metadata)
     result.validate()

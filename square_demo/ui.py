@@ -1,7 +1,6 @@
-"""Окно демонстрации. Здесь нет уравнений орбит или проекции."""
+"""Окно одного пролёта: готовая геометрия и траектории из расчётного слоя."""
 from __future__ import annotations
 
-from copy import deepcopy
 from concurrent.futures import ThreadPoolExecutor
 import json
 from pathlib import Path
@@ -12,907 +11,514 @@ from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QColor, QPainter
-from PySide6.QtWidgets import (QApplication, QComboBox, QDoubleSpinBox, QFormLayout,
-                               QFileDialog, QGroupBox, QHBoxLayout, QLabel, QMainWindow, QMessageBox,
-                               QPushButton, QSlider, QSplitter, QTableWidget, QToolButton,
-                               QTableWidgetItem, QVBoxLayout, QWidget, QSpinBox)
+from PySide6.QtWidgets import (QApplication, QComboBox, QDoubleSpinBox, QFileDialog,
+    QFormLayout, QGroupBox, QHBoxLayout, QLabel, QMainWindow, QPushButton,
+    QSlider, QSpinBox, QSplitter, QTableWidget, QTableWidgetItem, QToolButton,
+    QVBoxLayout, QWidget)
 
-from .providers import (SCENARIOS, audit_independent_grid, calculate,
-                        calculate_free_variants, load_scenario)
-from .study import load_study_case, study_status
+from .providers import calculate
+from .study import CandidateUnavailable, load_study_case, study_status
 from orbit_study.user_run import run_selected_case
-
-
-COLORS = ["#223b85", "#d63d35", "#15925b", "#b87607", "#9245a7", "#00a1ac"]
 
 
 class Plot(FigureCanvasQTAgg):
     def __init__(self, projection=None):
-        self.figure = Figure(figsize=(5, 4), constrained_layout=projection != "3d")
-        self.axes = self.figure.add_subplot(111, projection=projection)
-        if projection == "3d":
-            self.figure.subplots_adjust(left=0.02,right=0.98,bottom=0.03,top=0.92)
+        self.figure=Figure(figsize=(5,4),constrained_layout=projection!="3d")
+        self.axes=self.figure.add_subplot(111,projection=projection)
+        if projection=="3d":
+            self.figure.subplots_adjust(left=.02,right=.98,bottom=.03,top=.92)
         super().__init__(self.figure)
-        self.setMinimumWidth(320)
+        self.setMinimumWidth(300)
 
 
 class ObservableTimeline(QWidget):
-    """Подсветка рассчитанных допустимых узлов под ползунком времени."""
     def __init__(self):
         super().__init__()
         self.setFixedHeight(14)
-        self.times = None
-        self.eligible = None
-        self.index = 0
+        self.times=None
+        self.eligible=None
+        self.index=0
 
-    def set_result(self, times, eligible):
-        self.times = times
-        self.eligible = eligible
+    def set_result(self,times,eligible):
+        self.times=times
+        self.eligible=eligible
         self.update()
 
-    def set_index(self, index):
-        self.index = index
+    def set_index(self,index):
+        self.index=index
         self.update()
 
-    def paintEvent(self, event):
+    def paintEvent(self,event):
         if self.times is None:
             return
-        painter = QPainter(self)
+        painter=QPainter(self)
         painter.setPen(Qt.PenStyle.NoPen)
-        left, width = 5, max(1,self.width()-10)
+        left,width=5,max(1,self.width()-10)
         painter.fillRect(left,4,width,6,QColor("#d4d8de"))
-        span = self.times[-1]-self.times[0]
+        span=self.times[-1]-self.times[0]
         for k,good in enumerate(self.eligible):
             if good:
-                start = self.times[0] if k == 0 else (self.times[k-1]+self.times[k])/2
-                end = self.times[-1] if k == len(self.times)-1 else (self.times[k]+self.times[k+1])/2
-                x0 = left+round(width*(start-self.times[0])/span)
-                x1 = left+round(width*(end-self.times[0])/span)
+                a=self.times[0] if k==0 else (self.times[k-1]+self.times[k])/2
+                b=self.times[-1] if k==len(self.times)-1 else (self.times[k]+self.times[k+1])/2
+                x0=left+round(width*(a-self.times[0])/span)
+                x1=left+round(width*(b-self.times[0])/span)
                 painter.fillRect(x0,4,max(1,x1-x0),6,QColor("#259b59"))
-        cursor = left+round(width*(self.times[self.index]-self.times[0])/span)
+        cursor=left+round(width*(self.times[self.index]-self.times[0])/span)
         painter.fillRect(cursor-1,1,2,12,QColor("#263238"))
 
 
 class DemoWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Наблюдаемая сетка КА")
-        self.resize(1530, 900)
-        self.result = None
-        self.scenario = None
-        self.variants = {}
-        self.study_record = None
-        self.study_data = None
-        self.audit_executor = ThreadPoolExecutor(max_workers=1)
-        self.audit_future = None
-        self.audit_timer = QTimer(self)
-        self.audit_timer.setInterval(120)
-        self.audit_timer.timeout.connect(self._poll_audit)
-        self.analysis_executor = ThreadPoolExecutor(max_workers=1)
-        self.analysis_future = None
-        self.analysis_timer = QTimer(self)
-        self.analysis_timer.setInterval(200)
-        self.analysis_timer.timeout.connect(self._poll_long_analysis)
-        self.timer = QTimer(self)
+        self.setWindowTitle("Наблюдаемая сетка КА — один пролёт")
+        self.resize(1530,900)
+        self.result=None
+        self.scenario=None
+        self.study_record=None
+        self.study_data=None
+        self.timer=QTimer(self)
         self.timer.setInterval(110)
         self.timer.timeout.connect(self.advance)
-        central = QWidget()
+        self.analysis_executor=ThreadPoolExecutor(max_workers=1)
+        self.analysis_future=None
+        self.analysis_timer=QTimer(self)
+        self.analysis_timer.setInterval(200)
+        self.analysis_timer.timeout.connect(self._poll_long_analysis)
+        central=QWidget()
         self.setCentralWidget(central)
-        root = QVBoxLayout(central)
-        top = QHBoxLayout()
+        root=QVBoxLayout(central)
+        top=QHBoxLayout()
         root.addLayout(top)
-        self.mode = QComboBox()
-        self.mode.addItem("Свободный пролёт HCW", "free_hcw_two_body")
-        self.mode.addItem("Историческая управляемая траектория", "legacy_replay")
-        self.mode.addItem("Независимые орбиты J₂", "independent_j2")
-        self.mode.addItem("Орбиты из исследования J₂", "study_j2")
-        self.mode.currentIndexChanged.connect(self.reload_scenario)
+        self.mode=QComboBox()
+        self.mode.addItem("Без управления","passive")
+        self.mode.addItem("С управлением","controlled")
         top.addWidget(QLabel("Режим:"))
-        top.addWidget(self.mode, 2)
-        self.variant = QComboBox()
-        self.variant.addItem("Подобранное свободное", "fitted")
-        self.variant.addItem("Пробное свободное", "trial")
-        self.variant.addItem("Удерживаемый квадрат ОСО", "ideal")
-        self.variant.currentIndexChanged.connect(self.select_variant)
-        top.addWidget(self.variant, 2)
-        self.view = QComboBox()
-        self.view.addItems(["3D: локальная ОСО", "3D: общая инерциальная система"])
+        top.addWidget(self.mode,2)
+        self.view=QComboBox()
+        self.view.addItem("3D: локальная система центра группы","local")
+        self.view.addItem("3D: инерциальная система — приблизить группу","eci_close")
+        self.view.addItem("3D: инерциальная система — Земля целиком","eci_earth")
         self.view.currentIndexChanged.connect(self.update_frame)
-        top.addWidget(self.view, 2)
-        self.reload_button = QPushButton("Перезагрузить JSON")
-        self.reload_button.clicked.connect(self.reload_scenario)
-        top.addWidget(self.reload_button)
+        top.addWidget(self.view,3)
 
-        settings = QGroupBox("Параметры сценария")
-        settings_layout = QHBoxLayout(settings)
-        root.addWidget(settings)
-        self.fields = {}
-        specs = [
-            ("angular_side_deg", "Угловая сторона, °", 1, 20, 12),
-            ("altitude_km", "Высота, км", 1, 100000, 2),
-            ("inclination_deg", "Наклонение, °", 0.01, 179.99, 3),
-            ("latitude_deg", "Широта, °", -90, 90, 4),
-            ("longitude_deg", "Долгота, °", -180, 180, 4),
-        ]
-        for key, label, lo, hi, decimals in specs:
-            column = QFormLayout()
-            box = QDoubleSpinBox()
-            box.setRange(lo, hi)
-            box.setDecimals(decimals)
-            box.setSingleStep(0.1 if key.endswith("deg") else 10)
-            column.addRow(label, box)
-            settings_layout.addLayout(column)
-            self.fields[key] = box
-        grid_column = QFormLayout()
-        self.grid_size = QSpinBox()
+        groups=QHBoxLayout()
+        root.addLayout(groups)
+        config=QGroupBox("Конфигурация")
+        cf=QFormLayout(config)
+        self.grid_size=QSpinBox()
         self.grid_size.setRange(2,10)
-        grid_column.addRow("КА на стороне N",self.grid_size)
-        settings_layout.addLayout(grid_column)
-        self.resolution_column = QFormLayout()
-        self.resolution = QComboBox()
-        self.resolution.addItem("1°",1.0)
-        self.resolution.addItem("2°",2.0)
+        self.grid_size.setValue(10)
+        cf.addRow("КА на стороне N",self.grid_size)
+        self.angular_side=QDoubleSpinBox()
+        self.angular_side.setRange(1,30)
+        self.angular_side.setDecimals(3)
+        self.angular_side.setValue(20)
+        self.angular_side.setSuffix(" °")
+        cf.addRow("Внешняя сторона (цель)",self.angular_side)
+        self.resolution=QComboBox()
+        self.resolution.addItem("1°",1.)
+        self.resolution.addItem("2°",2.)
         self.resolution.setCurrentIndex(1)
-        self.resolution_label = QLabel("Истинный шаг ≥")
-        self.resolution_column.addRow(self.resolution_label,self.resolution)
-        settings_layout.addLayout(self.resolution_column)
-        self.grid_size.valueChanged.connect(self._study_selection_changed)
-        self.resolution.currentIndexChanged.connect(self._study_selection_changed)
-        self.recalculate = QPushButton("Пересчитать")
-        self.recalculate.clicked.connect(self.calculate_current)
-        settings_layout.addWidget(self.recalculate)
+        cf.addRow("Истинный угол соседей ≥",self.resolution)
+        groups.addWidget(config,2)
+        observer=QGroupBox("Наблюдатель")
+        of=QFormLayout(observer)
+        self.observer_location=QLabel("—")
+        self.min_elevation=QLabel("—")
+        of.addRow("Широта / долгота",self.observer_location)
+        of.addRow("Мин. угол места",self.min_elevation)
+        groups.addWidget(observer,2)
+        orbit=QGroupBox("Орбита")
+        orb=QFormLayout(orbit)
+        self.orbit_parameters=QLabel("—")
+        self.epoch=QLabel("—")
+        orb.addRow("Опорный КА 0",self.orbit_parameters)
+        orb.addRow("Общая эпоха",self.epoch)
+        groups.addWidget(orbit,2)
+        model=QGroupBox("Модель")
+        ml=QVBoxLayout(model)
+        self.model_summary=QLabel("Нелинейная гравитация Земли + J₂; тяга отсутствует")
+        self.model_summary.setWordWrap(True)
+        ml.addWidget(self.model_summary)
+        self.model_button=QToolButton()
+        self.model_button.setText("Параметры модели ▸")
+        self.model_button.setCheckable(True)
+        ml.addWidget(self.model_button)
+        self.model_details=QLabel()
+        self.model_details.setWordWrap(True)
+        self.model_details.setVisible(False)
+        self.model_button.toggled.connect(self.model_details.setVisible)
+        ml.addWidget(self.model_details)
+        groups.addWidget(model,2)
+        self.grid_size.valueChanged.connect(self.calculate_current)
+        self.angular_side.valueChanged.connect(self.calculate_current)
+        self.resolution.currentIndexChanged.connect(self.calculate_current)
+        self.mode.currentIndexChanged.connect(self.calculate_current)
 
-        parameter_group = QGroupBox("Параметры расчёта и выбор начального состояния")
-        parameter_layout = QVBoxLayout(parameter_group)
-        self.parameters = QLabel()
-        self.parameters.setWordWrap(True)
-        parameter_layout.addWidget(self.parameters)
-        self.initial_button = QToolButton()
-        self.initial_button.setText("Начальные дальности, положения и скорости ▸")
-        self.initial_button.setCheckable(True)
-        parameter_layout.addWidget(self.initial_button)
-        self.initial_table = QTableWidget(3,8)
-        self.initial_table.setHorizontalHeaderLabels([
-            "КА", "λ, км", "x₀, км", "y₀, км", "z₀, км",
-            "vx₀, м/с", "vy₀, м/с", "vz₀, м/с"])
-        self.initial_table.verticalHeader().setVisible(False)
-        self.initial_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        self.initial_table.setFixedHeight(122)
-        self.initial_table.setVisible(False)
-        self.initial_button.toggled.connect(self._toggle_initial_table)
-        parameter_layout.addWidget(self.initial_table)
-        self.elements_button = QToolButton()
-        self.elements_button.setText("Оскулирующие элементы всех КА на общей эпохе ▸")
+        self.status=QLabel()
+        self.status.setWordWrap(True)
+        root.addWidget(self.status)
+        technical=QHBoxLayout()
+        root.addLayout(technical)
+        self.elements_button=QToolButton()
+        self.elements_button.setText("Элементы орбит ▸")
         self.elements_button.setCheckable(True)
-        self.elements_button.setVisible(False)
-        parameter_layout.addWidget(self.elements_button)
-        self.elements_table = QTableWidget(4,7)
-        self.elements_table.setHorizontalHeaderLabels([
-            "КА", "a, км", "e", "i, °", "Ω, °", "ω, °", "ν, °"])
-        self.elements_table.verticalHeader().setVisible(False)
-        self.elements_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        self.elements_table.setFixedHeight(150)
-        self.elements_table.setVisible(False)
-        self.elements_button.toggled.connect(self._toggle_elements_table)
-        parameter_layout.addWidget(self.elements_table)
-        self.export_elements_button = QPushButton("Сохранить элементы JSON")
-        self.export_elements_button.clicked.connect(self._choose_elements_path)
-        self.export_elements_button.setVisible(False)
-        parameter_layout.addWidget(self.export_elements_button)
-        self.study_status_label = QLabel()
-        self.study_status_label.setWordWrap(True)
-        parameter_layout.addWidget(self.study_status_label)
-        self.long_controls = QWidget()
-        long_row = QHBoxLayout(self.long_controls)
-        long_row.setContentsMargins(0,0,0,0)
-        long_row.addWidget(QLabel("Отдельный анализ, сутки:"))
-        self.long_horizon = QDoubleSpinBox()
+        self.elements_button.toggled.connect(self._toggle_elements)
+        technical.addWidget(self.elements_button)
+        self.export_button=QPushButton("Сохранить элементы JSON")
+        self.export_button.clicked.connect(self._choose_elements_path)
+        technical.addWidget(self.export_button)
+        technical.addStretch(1)
+        technical.addWidget(QLabel("Отдельный анализ, сут.:"))
+        self.long_horizon=QDoubleSpinBox()
         self.long_horizon.setRange(.05,30.)
         self.long_horizon.setDecimals(2)
         self.long_horizon.setValue(1.)
-        long_row.addWidget(self.long_horizon)
-        self.long_button = QPushButton("Рассчитать и сохранить графики")
+        technical.addWidget(self.long_horizon)
+        self.long_button=QPushButton("Рассчитать и сохранить")
         self.long_button.clicked.connect(self._choose_long_analysis_dir)
-        long_row.addWidget(self.long_button)
-        self.long_status = QLabel("Долгосрочный анализ запускается только этой кнопкой.")
+        technical.addWidget(self.long_button)
+        self.elements_table=QTableWidget(0,7)
+        self.elements_table.setHorizontalHeaderLabels(["КА","a, км","e","i, °","Ω, °","ω, °","ν, °"])
+        self.elements_table.verticalHeader().setVisible(False)
+        self.elements_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.elements_table.setFixedHeight(160)
+        self.elements_table.setVisible(False)
+        root.addWidget(self.elements_table)
+        self.long_status=QLabel("Дальнейшие пролёты рассчитываются только по отдельному запросу.")
         self.long_status.setWordWrap(True)
-        long_row.addWidget(self.long_status,1)
-        parameter_layout.addWidget(self.long_controls)
-        root.addWidget(parameter_group)
+        root.addWidget(self.long_status)
 
-        splitter = QSplitter(Qt.Orientation.Horizontal)
-        self.proj = Plot()
-        self.yoz = Plot()
-        self.space = Plot("3d")
-        splitter.addWidget(self.proj)
-        splitter.addWidget(self.yoz)
-        splitter.addWidget(self.space)
-        splitter.setSizes([500, 500, 500])
-        root.addWidget(splitter, 1)
-
-        transport = QHBoxLayout()
+        splitter=QSplitter(Qt.Orientation.Horizontal)
+        self.proj=Plot()
+        self.yoz=Plot()
+        self.space=Plot("3d")
+        for plot in (self.proj,self.yoz,self.space): splitter.addWidget(plot)
+        splitter.setSizes([500,500,500])
+        root.addWidget(splitter,1)
+        transport=QHBoxLayout()
         root.addLayout(transport)
-        self.start_button = QPushButton("В начало")
-        self.start_button.clicked.connect(lambda: self.time_slider.setValue(0))
-        self.play_button = QPushButton("Пуск")
+        self.start_button=QPushButton("В начало")
+        self.start_button.clicked.connect(lambda:self.time_slider.setValue(0))
+        self.play_button=QPushButton("Пуск")
         self.play_button.clicked.connect(self.toggle_play)
-        self.speed = QComboBox()
-        for label, value in (("0,5×", 0.5), ("1×", 1), ("2×", 2), ("5×", 5)):
-            self.speed.addItem(label, value)
-        self.speed.setCurrentIndex(1)
-        self.time_slider = QSlider(Qt.Orientation.Horizontal)
+        self.time_slider=QSlider(Qt.Orientation.Horizontal)
         self.time_slider.valueChanged.connect(self.update_frame)
-        self.timeline = ObservableTimeline()
-        self.timeline.setToolTip("Зелёные участки: выполнены критерии формы и видимости")
-        self.time_label = QLabel("t = — с")
-        transport.addWidget(self.start_button)
-        transport.addWidget(self.play_button)
-        time_column = QVBoxLayout()
+        self.timeline=ObservableTimeline()
+        self.timeline.setToolTip("Зелёные участки: вся сетка удовлетворяет условиям")
+        time_column=QVBoxLayout()
         time_column.setSpacing(0)
         time_column.addWidget(self.time_slider)
         time_column.addWidget(self.timeline)
+        self.time_label=QLabel("t = — с")
+        self.speed=QComboBox()
+        for label,value in (("0,5×",.5),("1×",1),("2×",2),("5×",5)):
+            self.speed.addItem(label,value)
+        self.speed.setCurrentIndex(1)
+        transport.addWidget(self.start_button)
+        transport.addWidget(self.play_button)
         transport.addLayout(time_column,1)
         transport.addWidget(self.time_label)
         transport.addWidget(QLabel("Скорость:"))
         transport.addWidget(self.speed)
-
-        indicators = QHBoxLayout()
-        self.observable_badge = QLabel()
+        self.observable_badge=QLabel()
         self.observable_badge.setWordWrap(True)
-        self.safety_badge = QLabel()
+        root.addWidget(self.observable_badge)
+        self.safety_badge=QLabel()
         self.safety_badge.setWordWrap(True)
-        indicators.addWidget(self.observable_badge,3)
-        indicators.addWidget(self.safety_badge,2)
-        root.addLayout(indicators)
-        self.metrics = QLabel()
+        root.addWidget(self.safety_badge)
+        self.metrics=QLabel()
         self.metrics.setWordWrap(True)
-        self.metrics.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         root.addWidget(self.metrics)
-        self.geometry = QLabel()
+        self.geometry=QLabel()
         self.geometry.setWordWrap(True)
         root.addWidget(self.geometry)
-        self.comparison = QTableWidget(3,7)
-        self.comparison.setHorizontalHeaderLabels([
-            "Вариант", "Допустимо, с", "max εb", "max εd", "max εγ, °", "min h, °", "min d, км"])
-        self.comparison.setFixedHeight(113)
-        self.comparison.verticalHeader().setVisible(False)
-        self.comparison.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        self.comparison.setColumnWidth(0,180)
-        for col in range(1,7):
-            self.comparison.setColumnWidth(col,100)
-        root.addWidget(self.comparison)
-        self.verdict = QLabel()
-        root.addWidget(self.verdict)
-        self.info = QLabel()
-        self.info.setWordWrap(True)
-        root.addWidget(self.info)
-        self.reload_scenario()
+        self.note=QLabel()
+        self.note.setWordWrap(True)
+        root.addWidget(self.note)
+        self.calculate_current()
 
-    def reload_scenario(self):
+    def _clear_result(self,message):
         self.timer.stop()
         self.play_button.setText("Пуск")
-        try:
-            study = self.mode.currentData() == "study_j2"
-            if study:
-                self.scenario,self.study_record,self.study_data = load_study_case(
-                    self.grid_size.value(),self.resolution.currentData())
-            else:
-                self.scenario = load_scenario(SCENARIOS[self.mode.currentData()])
-                self.study_record = self.study_data = None
-            s = self.scenario
-            self.fields["angular_side_deg"].setValue(float(s.get("angular_side_deg", 1.8183029644518331)))
-            orbit = s.get("orbit")
-            if orbit is None:
-                # Поля исторического режима показывают исходные параметры CSV.
-                import json
-                from pathlib import Path
-                path = Path(s["_path"]).parent / s["data_directory"] / "config.json"
-                with path.open(encoding="utf-8") as f:
-                    old = json.load(f)["orbit"]
-                orbit = {"altitude_km": old["h_km"], "inclination_deg": old["i_deg"]}
-            self.fields["altitude_km"].setValue(float(orbit["altitude_km"]))
-            self.fields["inclination_deg"].setValue(float(orbit["inclination_deg"]))
-            for key in ("latitude_deg", "longitude_deg"):
-                self.fields[key].setValue(float(s["observer"][key]))
-            free = s["mode"] == "free_hcw_two_body"
-            j2 = s["mode"] == "independent_j2"
-            self.grid_size.blockSignals(True)
-            self.grid_size.setValue(int(s.get("grid_size",2)))
-            self.grid_size.blockSignals(False)
-            self.grid_size.setEnabled(j2)
-            self.resolution.setVisible(study)
-            self.resolution_label.setVisible(study)
-            self.study_status_label.setVisible(study)
-            self.long_controls.setVisible(study)
-            self.variant.setEnabled(free)
-            self.comparison.setVisible(free)
-            self.verdict.setVisible(free)
-            self.elements_button.setVisible(j2)
-            self.elements_table.setVisible(j2 and self.elements_button.isChecked())
-            self.export_elements_button.setVisible(j2)
-            self.fields["angular_side_deg"].setEnabled(free)
-            self.fields["altitude_km"].setEnabled(free)
-            self.fields["inclination_deg"].setEnabled(free)
-            for key in ("latitude_deg","longitude_deg"):
-                self.fields[key].setEnabled(not study)
-            self.calculate_current()
-        except Exception as exc:
-            self._invalidate_result(exc)
-            self._error(exc)
-
-    def calculate_current(self):
-        if self.scenario is None:
-            return
-        try:
-            study = self.mode.currentData() == "study_j2"
-            if study:
-                s,record,data = load_study_case(self.grid_size.value(),
-                                                  self.resolution.currentData())
-            else:
-                s = deepcopy(self.scenario)
-            if s["mode"] == "free_hcw_two_body":
-                s["angular_side_deg"] = self.fields["angular_side_deg"].value()
-                s["orbit"]["altitude_km"] = self.fields["altitude_km"].value()
-                s["orbit"]["inclination_deg"] = self.fields["inclination_deg"].value()
-            elif s["mode"] == "independent_j2":
-                s["grid_size"] = self.grid_size.value()
-            if not study:
-                for key in ("latitude_deg", "longitude_deg"):
-                    s["observer"][key] = self.fields[key].value()
-            if s["mode"] == "free_hcw_two_body":
-                variants = calculate_free_variants(s)
-                result = variants[self.variant.currentData()]
-            else:
-                variants = {}
-                result = calculate(s,include_audit=(not study and
-                    (s["mode"] != "independent_j2" or s["grid_size"] == 2)))
-            if study:
-                key=str(int(self.resolution.currentData()))
-                saved=record["verification"]["repeat"][key]["best_pass"]
-                actual=result.metadata["quality"]["longest_contiguous_duration_s"]
-                if saved is not None and abs(actual-saved["duration_s"])>result.t_s[1]-result.t_s[0]+1e-6:
-                    raise ValueError("Сохранённый и повторный расчёт пролёта расходятся по длительности")
-                result.metadata["audit_status"]="study_saved"
-                result.metadata["study_record"]=record
-                result.metadata["study_status"]=study_status(record,self.resolution.currentData(),
-                                                              data["search_config"])
-        except Exception as exc:
-            if self.mode.currentData() == "study_j2":
-                self.study_record = self.study_data = None
-                self._invalidate_result(exc)
-            self._error(exc)
-            return
-        self.timer.stop()
-        self.play_button.setText("Пуск")
-        self.result = result
-        self.variants = variants
-        if study:
-            self.scenario,self.study_record,self.study_data=s,record,data
-        if self.audit_future is not None and not self.audit_future.done():
-            self.audit_future.cancel()
-        if result.metadata.get("audit_status") == "pending":
-            self.audit_future = self.audit_executor.submit(
-                audit_independent_grid,deepcopy(s),deepcopy(result.metadata["orbital_elements"]))
-            self.audit_timer.start()
-        else:
-            self.audit_future = None
-            self.audit_timer.stop()
-        self.time_slider.blockSignals(True)
-        self.time_slider.setRange(0, len(result.t_s)-1)
-        zenith_idx = int(np.argmin(abs(result.t_s-result.metadata["zenith_s"])))
-        self.time_slider.setValue(zenith_idx)
-        self.time_slider.blockSignals(False)
-        self.timeline.set_result(result.t_s,result.metadata["observability"]["eligible"])
-        self._update_parameters()
-        self._draw_comparison()
-        self.update_frame()
-
-    def _study_selection_changed(self, *_):
-        if self.mode.currentData() == "study_j2" and self.scenario is not None:
-            self.calculate_current()
-
-    def _poll_audit(self):
-        if self.audit_future is None or not self.audit_future.done():
-            return
-        future = self.audit_future
-        self.audit_future = None
-        self.audit_timer.stop()
-        if future.cancelled():
-            return
-        try:
-            self.result.metadata.update(future.result())
-        except Exception as exc:
-            self.result.metadata["audit_status"] = "failed"
-            self.result.metadata["audit_error"] = str(exc)
-        self.update_frame()
-
-    def select_variant(self):
-        if not self.variants or self.mode.currentData() != "free_hcw_two_body":
-            return
-        self.result = self.variants[self.variant.currentData()]
-        self.timeline.set_result(self.result.t_s,self.result.metadata["observability"]["eligible"])
-        self._update_parameters()
-        self._draw_comparison()
-        self.update_frame()
-
-    def _toggle_initial_table(self, expanded):
-        self.initial_table.setVisible(expanded)
-        self.initial_button.setText("Начальные дальности, положения и скорости ▾" if expanded
-                                    else "Начальные дальности, положения и скорости ▸")
-
-    def _toggle_elements_table(self, expanded):
-        self.elements_table.setVisible(expanded and self.mode.currentData() in ("independent_j2","study_j2"))
-        self.elements_button.setText("Оскулирующие элементы всех КА на общей эпохе ▾" if expanded
-                                     else "Оскулирующие элементы всех КА на общей эпохе ▸")
-
-    def _update_parameters(self):
-        result = self.result
-        meta = result.metadata
-        model = meta["source"]
-        epoch_text = (f" Общая эпоха {meta['epoch_utc']}; J₂={self.scenario['orbit']['j2']:.9f}; "
-                      f"сетка {meta['grid_size']}×{meta['grid_size']} ({meta['grid_size']**2} КА)."
-                      if meta["mode"] == "independent_j2" else "")
-        self.parameters.setText(
-            f"Модель: {model}. Высота {meta['reference_altitude_km']:.1f} км; "
-            f"наклонение {meta['inclination_deg']:.2f}°; номинальный период {meta['reference_period_s']:.1f} с. "
-            f"Наблюдатель: {meta['observer_latitude_deg']:.4f}° широты, "
-            f"{meta['observer_longitude_deg']:.4f}° долготы; заданная угловая сторона "
-            f"{meta['angular_side_deg']:.6f}°; рабочий интервал {result.t_s[0]:g}…{result.t_s[-1]:g} с. "
-            f"Начальное состояние: {meta['initial_choice']} (t={meta['initial_epoch_s']:g} с).{epoch_text}")
-        positions = meta["initial_rho_oso_km"]
-        velocities = meta["initial_vel_oso_m_s"]
-        lambdas = meta["initial_lambda_km"]
-        self.initial_table.setRowCount(len(positions))
-        for row in range(len(positions)):
-            values = [str(row+1), "—" if lambdas is None else f"{lambdas[row]:.3f}"]
-            values += [f"{x:.3f}" for x in positions[row]]
-            values += [f"{x:.3f}" for x in velocities[row]]
-            for col,value in enumerate(values):
-                self.initial_table.setItem(row,col,QTableWidgetItem(value))
-        if meta["mode"] == "independent_j2":
-            self.elements_table.setRowCount(len(meta["orbital_elements"]))
-            for row,entry in enumerate(meta["orbital_elements"]):
-                values = [str(row),f"{entry['a_km']:.6f}",f"{entry['e']:.9f}",
-                          f"{entry['inclination_deg']:.6f}",f"{entry['raan_deg']:.6f}",
-                          f"{entry['arg_perigee_deg']:.6f}",f"{entry['true_anomaly_deg']:.6f}"]
-                for col,value in enumerate(values):
-                    self.elements_table.setItem(row,col,QTableWidgetItem(value))
-        if self.study_record is not None and self.mode.currentData() == "study_j2":
-            audit=self.study_record["verification"]
-            key=str(int(self.resolution.currentData()))
-            passes=audit["repeat"][key]["qualifying_passes"]
-            status=meta["study_status"]
-            reasons="; ".join(self.study_record["unmet_constraints"])
-            if not reasons:
-                reasons="зафиксированных нарушений нет"
-            self.study_status_label.setText(
-                f"Исследование N={meta['grid_size']}: {status}. Порог соседей ≥{key}°. "
-                f"Проверено {audit['horizon_days']:g} сут.; подходящих пролётов {passes}; "
-                f"min всех пар {audit['closest_pair']['distance_km']:.3f} км; "
-                f"min высота {audit['minimum_altitude_km']:.1f} км. "
-                f"Ограничения исследования: {reasons}.")
-            self.study_status_label.setStyleSheet(
-                "background:#d9f4e3;color:#145b32;padding:5px;" if status=="требования выполнены"
-                else "background:#fff0d9;color:#805015;padding:5px;" if status=="выполнены частично"
-                else "background:#ffe3df;color:#8b241d;padding:5px;")
-
-    def _choose_elements_path(self):
-        if self.result is None or self.result.metadata.get("mode") != "independent_j2":
-            return
-        size = self.result.metadata["grid_size"]
-        path,_ = QFileDialog.getSaveFileName(self,"Сохранить оскулирующие элементы",
-            f"grid_n{size}_elements.json","JSON (*.json)")
-        if path:
-            try:
-                self.export_orbit_elements(path)
-            except OSError as exc:
-                self._error(exc)
-
-    def export_orbit_elements(self,path):
-        meta = self.result.metadata
-        payload = {"epoch_utc":meta["epoch_utc"],"grid_size":meta["grid_size"],
-                   "index_map":meta["grid_indices"],"model":"independent_j2",
-                   "elements_at_epoch":meta["orbital_elements"],
-                   "units":{"a":"km","angles":"deg","e":"dimensionless"}}
-        if "study_provenance" in self.scenario:
-            payload["study_provenance"]=self.scenario["study_provenance"]
-            payload["reference_orbit"]=self.scenario["orbit"]
-        Path(path).write_text(json.dumps(payload,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
-
-    def _choose_long_analysis_dir(self):
-        folder=QFileDialog.getExistingDirectory(self,"Папка отдельных результатов",
-                                                str(Path("orbit_study/user_runs").resolve()))
-        if folder:
-            self.start_long_analysis(folder)
-
-    def start_long_analysis(self, output_parent=None):
-        if self.mode.currentData()!="study_j2" or self.analysis_future is not None:
-            return
-        size=self.grid_size.value()
-        angle=float(self.resolution.currentData())
-        days=self.long_horizon.value()
-        self.long_button.setEnabled(False)
-        self.long_status.setText(f"Расчёт N={size}, {days:g} сут. выполняется; результаты появятся в отдельной папке.")
-        self.analysis_future=self.analysis_executor.submit(
-            run_selected_case,size,angle,days,output_parent)
-        self.analysis_timer.start()
-
-    def _poll_long_analysis(self):
-        if self.analysis_future is None or not self.analysis_future.done():
-            return
-        future=self.analysis_future
-        self.analysis_future=None
-        self.analysis_timer.stop()
-        self.long_button.setEnabled(True)
-        try:
-            outcome=future.result()
-            closest=outcome["closest_pair"]
-            self.long_status.setText(
-                f"{outcome['status']}; подходящих пролётов {outcome['qualifying_passes']}; "
-                f"min {closest['distance_km']:.3f} км (пара {closest['pair']}); "
-                f"файлы: {outcome['folder']}")
-        except Exception as exc:
-            self.long_status.setText(f"Отдельный анализ не завершён: {exc}")
-
-    def _draw_comparison(self):
-        if not self.variants:
-            return
-        for row,(name,title) in enumerate((("ideal","Удерживаемый ОСО"),
-                                           ("trial","Пробное свободное"),
-                                           ("fitted","Подобранное свободное"))):
-            quality = self.variants[name].metadata["quality"]
-            values = (title, f"{quality['zenith_contiguous_duration_s']:.0f}",
-                      f"{quality['max_side_error']:.3f}",f"{quality['max_diagonal_error']:.3f}",
-                      f"{quality['max_angle_error_deg']:.2f}",f"{quality['min_elevation_deg']:.1f}",
-                      f"{quality['min_pair_distance_km']:.2f}")
-            for col,value in enumerate(values):
-                self.comparison.setItem(row,col,QTableWidgetItem(value))
-        fitted = self.variants["fitted"].metadata["quality"]["zenith_contiguous_duration_s"]
-        trial = self.variants["trial"].metadata["quality"]["zenith_contiguous_duration_s"]
-        if fitted > trial:
-            self.verdict.setText(f"Подбор увеличил непрерывную допустимую длительность вокруг зенита: {trial:.0f} → {fitted:.0f} с. Максимальные ошибки в таблице относятся ко всему окну.")
-        else:
-            self.verdict.setText(f"Подбор не улучшил непрерывную допустимую длительность вокруг зенита: пробное {trial:.0f} с, подобранное {fitted:.0f} с.")
-
-    def _error(self, exc):
-        QMessageBox.warning(self, "Ошибка входных данных", str(exc))
-
-    def _invalidate_result(self, exc):
-        self.timer.stop()
-        self.result = None
-        self.variants = {}
+        self.result=None
+        self.scenario=None
+        self.study_record=None
+        self.study_data=None
         self.timeline.set_result(None,None)
-        self.study_status_label.setText(f"Данные не загружены: {exc}")
-        self.observable_badge.setText("Результат отсутствует")
-        self.safety_badge.setText("Проверка недоступна")
+        self.status.setText(message)
+        self.status.setStyleSheet("background:#ffe3df;color:#8b241d;padding:5px;")
+        self.observable_badge.clear()
+        self.safety_badge.clear()
         self.metrics.clear()
         self.geometry.clear()
-        self.info.clear()
+        self.note.clear()
+        self.elements_table.setRowCount(0)
+        self.elements_table.setVisible(False)
+        self.elements_button.setEnabled(False)
+        self.export_button.setEnabled(False)
+        self.long_button.setEnabled(False)
+        self.time_slider.setEnabled(False)
+        self.play_button.setEnabled(False)
+        self.orbit_parameters.setText("Нет выбранной орбиты")
+        self.epoch.setText("—")
+        self.observer_location.setText("—")
+        self.min_elevation.setText("—")
+        self.model_details.clear()
         for canvas in (self.proj,self.yoz,self.space):
             canvas.axes.clear()
             canvas.draw_idle()
 
+    def calculate_current(self,*_):
+        size=self.grid_size.value()
+        side=self.angular_side.value()
+        if self.mode.currentData()=="controlled":
+            self.model_summary.setText("Расчёт управления для выбранной сетки пока не подготовлен")
+            self._clear_result(f"С управлением: для N={size}, внешней стороны {side:g}° совместимого рассчитанного случая нет. Историческая траектория не является подобранной наблюдаемой сеткой.")
+            return
+        self.model_summary.setText("Каждый КА: собственная орбита; центральная гравитация + J₂; тяга отсутствует")
+        try:
+            scenario,record,data=load_study_case(size,float(self.resolution.currentData()),
+                                                   outer_side_deg=side)
+            result=calculate(scenario,include_audit=False)
+            key=str(int(self.resolution.currentData()))
+            saved=record["verification"]["repeat"][key]["best_pass"]
+            actual=result.metadata["quality"]["longest_contiguous_duration_s"]
+            if abs(actual-(saved["duration_s"] if saved else 0))>scenario["time"]["step_s"]+1e-6:
+                raise ValueError("Сохранённый и текущий расчёты пролёта расходятся")
+        except (CandidateUnavailable,ValueError,OSError,KeyError) as exc:
+            self._clear_result(str(exc))
+            return
+        self.timer.stop()
+        self.play_button.setText("Пуск")
+        self.scenario,self.study_record,self.study_data=scenario,record,data
+        self.result=result
+        self.time_slider.setEnabled(True)
+        self.play_button.setEnabled(True)
+        self.elements_button.setEnabled(True)
+        self.export_button.setEnabled(True)
+        self.long_button.setEnabled(self.analysis_future is None)
+        audit=record["verification"]
+        state=study_status(record,float(self.resolution.currentData()),data["search_config"])
+        reasons="; ".join(record["unmet_constraints"]) or "нет зафиксированных нарушений"
+        self.status.setText(f"N={size}, внешняя сторона цели {side:g}°: {state}. Проверено {audit['horizon_days']:g} сут.; подходящих пролётов при шаге ≥{key}°: {audit['repeat'][key]['qualifying_passes']}. Ограничения: {reasons}.")
+        self.status.setStyleSheet("background:#d9f4e3;color:#145b32;padding:5px;" if state=="требования выполнены" else "background:#fff0d9;color:#805015;padding:5px;" if state=="выполнены частично" else "background:#ffe3df;color:#8b241d;padding:5px;")
+        observer=scenario["observer"]
+        orbit=scenario["orbit"]
+        self.observer_location.setText(f"{observer['latitude_deg']:.4f}° / {observer['longitude_deg']:.4f}°")
+        self.min_elevation.setText(f"≥{scenario['visibility']['min_elevation_deg']:g}°")
+        self.orbit_parameters.setText(f"h₀={orbit['altitude_km']:g} км; i₀={orbit['inclination_deg']:g}°; T₀={result.metadata['reference_period_s']:.1f} с")
+        self.epoch.setText(scenario["epoch_utc"])
+        self.model_details.setText(f"Условная ECI: Z вдоль оси Земли, Гринвич=0° на эпохе. Rₑ={orbit['earth_radius_km']:g} км; μ={orbit['mu_km3_s2']:g} км³/с²; J₂={orbit['j2']:.11f}. Сферическая вращающаяся Земля. Локальное начало — среднее положение {size*size} КА; оси ориентированы по КА 0, скорость включает вращение осей. Условный порог: сумма радиусов 0,02 км + запас 1 км. Атмосфера и ошибки состояния не включены.")
+        self.elements_table.setRowCount(size*size)
+        self.elements_table.setVisible(self.elements_button.isChecked())
+        for row,entry in enumerate(result.metadata["orbital_elements"]):
+            values=[str(row),f"{entry['a_km']:.6f}",f"{entry['e']:.9f}",f"{entry['inclination_deg']:.6f}",f"{entry['raan_deg']:.6f}",f"{entry['arg_perigee_deg']:.6f}",f"{entry['true_anomaly_deg']:.6f}"]
+            for col,value in enumerate(values): self.elements_table.setItem(row,col,QTableWidgetItem(value))
+        self.time_slider.blockSignals(True)
+        self.time_slider.setRange(0,len(result.t_s)-1)
+        self.time_slider.setValue(int(np.argmin(abs(result.t_s))))
+        self.time_slider.blockSignals(False)
+        self.timeline.set_result(result.t_s,result.metadata["observability"]["eligible"])
+        self.update_frame()
+
+    def _toggle_elements(self,expanded):
+        self.elements_table.setVisible(expanded and self.result is not None)
+        self.elements_button.setText("Элементы орбит ▾" if expanded else "Элементы орбит ▸")
+
+    def _choose_elements_path(self):
+        if self.result is None: return
+        path,_=QFileDialog.getSaveFileName(self,"Сохранить оскулирующие элементы",
+            f"grid_n{self.grid_size.value()}_elements.json","JSON (*.json)")
+        if path: self.export_orbit_elements(path)
+
+    def export_orbit_elements(self,path):
+        if self.result is None: raise ValueError("Нет выбранного набора")
+        m=self.result.metadata
+        payload={"epoch_utc":self.scenario["epoch_utc"],"grid_size":m["grid_size"],
+            "index_map":m["grid_indices"],"model":"independent_j2",
+            "elements_at_epoch":m["orbital_elements"],"reference_orbit":self.scenario["orbit"],
+            "study_provenance":self.scenario["study_provenance"],
+            "units":{"a":"km","angles":"deg","e":"dimensionless"}}
+        Path(path).write_text(json.dumps(payload,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
+
+    def _choose_long_analysis_dir(self):
+        if self.result is None: return
+        folder=QFileDialog.getExistingDirectory(self,"Папка отдельных результатов",
+            str(Path("orbit_study/user_runs").resolve()))
+        if folder: self.start_long_analysis(folder)
+
+    def start_long_analysis(self,output_parent=None):
+        if self.result is None or self.analysis_future is not None: return
+        size=self.grid_size.value()
+        angle=float(self.resolution.currentData())
+        days=self.long_horizon.value()
+        self.long_button.setEnabled(False)
+        self.long_status.setText(f"Расчёт N={size}, {days:g} сут. выполняется…")
+        self.analysis_future=self.analysis_executor.submit(run_selected_case,size,angle,days,output_parent)
+        self.analysis_timer.start()
+
+    def _poll_long_analysis(self):
+        if self.analysis_future is None or not self.analysis_future.done(): return
+        future=self.analysis_future
+        self.analysis_future=None
+        self.analysis_timer.stop()
+        self.long_button.setEnabled(self.result is not None)
+        try:
+            out=future.result()
+            self.long_status.setText(f"{out['status']}; подходящих пролётов {out['qualifying_passes']}; min {out['closest_pair']['distance_km']:.3f} км; файлы: {out['folder']}")
+        except Exception as exc:
+            self.long_status.setText(f"Отдельный анализ не завершён: {exc}")
+
     def toggle_play(self):
+        if self.result is None: return
         if self.timer.isActive():
-            self.timer.stop()
-            self.play_button.setText("Пуск")
+            self.timer.stop(); self.play_button.setText("Пуск")
         else:
-            if self.time_slider.value() == self.time_slider.maximum():
-                self.time_slider.setValue(0)
-            self.timer.start()
-            self.play_button.setText("Пауза")
+            if self.time_slider.value()==self.time_slider.maximum(): self.time_slider.setValue(0)
+            self.timer.start(); self.play_button.setText("Пауза")
 
     def advance(self):
-        if self.result is None:
-            return
-        current = self.time_slider.value()
-        t = self.result.t_s
-        target = t[current] + self.timer.interval()/1000*self.speed.currentData()*10
-        next_index = int(np.searchsorted(t, target, side="left"))
-        self.time_slider.setValue(min(max(current+1, next_index), len(t)-1))
-        if self.time_slider.value() == len(t)-1:
-            self.timer.stop()
-            self.play_button.setText("Пуск")
+        if self.result is None: return
+        k=self.time_slider.value()
+        t=self.result.t_s
+        target=t[k]+self.timer.interval()/1000*self.speed.currentData()*10
+        next_index=int(np.searchsorted(t,target,side="left"))
+        self.time_slider.setValue(min(max(k+1,next_index),len(t)-1))
+        if self.time_slider.value()==len(t)-1:
+            self.timer.stop(); self.play_button.setText("Пуск")
 
-    def update_frame(self, *_):
-        result = self.result
-        if result is None:
-            return
-        k = self.time_slider.value()
-        self.time_label.setText(f"t = {result.t_s[k]:.1f} с")
+    def update_frame(self,*_):
+        r=self.result
+        if r is None: return
+        k=self.time_slider.value()
+        self.time_label.setText(f"t = {r.t_s[k]:.1f} с")
         self.timeline.set_index(k)
         self._draw_projection(k)
         self._draw_yoz(k)
         self._draw_space(k)
-        errors = result.shape_errors[k]
-        err = " / ".join("—" if not np.isfinite(x) else f"{x:.4f}" for x in errors[:2])
-        ang = "—" if not np.isfinite(errors[2]) else f"{np.rad2deg(errors[2]):.2f}°"
-        observation = result.metadata["observability"]
-        min_elev = observation["min_elevation_deg"][k]
-        good = bool(observation["eligible"][k])
-        duration = result.metadata["quality"]["zenith_contiguous_duration_s"]
-        subject = "Наблюдаемая сетка" if result.metadata.get("grid_size",2)>2 else "Наблюдаемый квадрат"
-        if result.metadata.get("grid_size",2)>2:
-            quality = result.metadata["quality"]
-            longest = quality["longest_interval_s"]
-            interval_text = (f"На пролёте допустимый интервал "
-                f"{longest[0]:g}…{longest[1]:g} с, "
-                f"длительность {quality['longest_contiguous_duration_s']:.0f} с."
-                if quality["has_positive_duration_interval"] else
-                "На пролёте связного допустимого интервала положительной длительности нет.")
-        else:
-            interval_text = f"Связный допустимый интервал вокруг зенита: {duration:.0f} с."
-        visible_intervals=observation["visibility_intervals_s"]
-        if visible_intervals:
-            longest_visible=max(visible_intervals,key=lambda ab:ab[1]-ab[0])
-            interval_text+=(f" Видимость всех КА: {longest_visible[0]:g}…"
-                            f"{longest_visible[1]:g} с; {len(visible_intervals)} интервал(ов).")
-        else:
-            interval_text+=" Все КА одновременно не видны."
-        if good:
-            qualifier=" локально на показанном пролёте" if self.mode.currentData()=="study_j2" else ""
-            self.observable_badge.setText(
-                f"● {subject} {'приемлема' if result.metadata.get('grid_size',2)>2 else 'приемлем'}{qualifier}. "
-                +interval_text)
-            self.observable_badge.setStyleSheet("background:#d9f4e3;color:#145b32;padding:5px;")
-        else:
-            self.observable_badge.setText(
-                f"● {subject} {'неприемлема' if result.metadata.get('grid_size',2)>2 else 'неприемлем'}: "
-                f"{observation['reasons'][k]}. {interval_text}")
-            self.observable_badge.setStyleSheet("background:#ffe3df;color:#8b241d;padding:5px;")
-        threshold = result.metadata["illustrative_min_separation_km"]
-        safe_now = bool(observation["safety_illustrative_ok"][k])
-        safe_window = bool(result.metadata["separation_meets_illustrative_threshold"])
-        trial_full_orbit_warning = result.metadata.get("variant") == "trial"
-        if result.metadata.get("audit_status") == "study_saved":
-            audit=result.metadata["study_record"]["verification"]
-            closest=audit["closest_pair"]
-            safe_window=closest["distance_km"]>=threshold
-            self.safety_badge.setText(
-                f"{'● За проверенный горизонт ниже запаса не найдено' if safe_window else '● Запас нарушен на проверенном горизонте'}: "
-                f"{audit['horizon_days']:g} сут., все {audit['pair_count']} пар; "
-                f"min {closest['distance_km']:.3f} км, пара {closest['pair']}, "
-                f"t={closest['t_s']:.1f} с, {closest['latitude_deg']:.1f}° / "
-                f"{closest['longitude_deg']:.1f}°; сейчас {result.min_pair_distance_km[k]:.3f} км. "
-                f"Порог радиусов с запасом {threshold:g} км.")
-        elif result.metadata.get("audit_status") == "pending":
-            safe_window = False
-            self.safety_badge.setText(
-                f"● Проверка всех {len(result.r_eci_km[0])*(len(result.r_eci_km[0])-1)//2} пар "
-                f"на полном витке ещё выполняется. Сейчас min "
-                f"{result.min_pair_distance_km[k]:.3f} км; "
-                f"min в показанном окне {np.min(result.min_pair_distance_km):.3f} км. "
-                "Вывод о сближениях за виток пока не готов.")
-        elif result.metadata.get("audit_status") == "failed":
-            safe_window = False
-            self.safety_badge.setText("● Проверка полного витка не завершена: "
-                                      +result.metadata.get("audit_error","ошибка"))
-        elif "full_orbit_audit" in result.metadata:
-            audit = result.metadata["full_orbit_audit"]
-            closest = min(audit["pair_minima"].values(),key=lambda event:event["distance_km"])
-            safe_window = result.metadata["full_orbit_meets_illustrative_threshold"]
-            self.safety_badge.setText(
-                f"{'● На полном витке ниже порога не найдено' if safe_window else '● Опасное сближение на полном витке'}: "
-                f"min {closest['distance_km']:.3f} км, пара {closest['pair']}, "
-                f"t={closest['t_s']:.1f} с, {closest['latitude_deg']:.1f}° / "
-                f"{closest['longitude_deg']:.1f}°; сейчас {result.min_pair_distance_km[k]:.3f} км. "
-                f"Иллюстративный порог {threshold:g} км; "
-                f"опасных локальных минимумов: {len(audit['dangerous_events'])}.")
-        elif trial_full_orbit_warning:
-            safe_window = False
-            self.safety_badge.setText(
-                f"● Пробная конфигурация не подтверждена как безопасная: "
-                f"на отдельном двухтельном витке пары 0–3 и 1–2 сближаются "
-                f"примерно до 0,096 км около T/4. "
-                f"Min в показываемом окне {np.min(result.min_pair_distance_km):.3f} км; "
-                f"иллюстративный порог {threshold:g} км.")
-        else:
-            self.safety_badge.setText(
-                f"{ '● Расстояния выше ориентира' if safe_now and safe_window else '● Есть сближение ниже ориентира' }: "
-                f"сейчас {result.min_pair_distance_km[k]:.3f} км; "
-                f"min за окно {np.min(result.min_pair_distance_km):.3f} км; "
-                f"иллюстративный порог {threshold:g} км.")
-        self.safety_badge.setStyleSheet(
-            "background:#e7edf8;color:#1c3764;padding:5px;" if safe_now and safe_window
-            else "background:#fff0d9;color:#805015;padding:5px;")
-        size_dev = observation["size_deviation_percent"][k]
-        size_text = "—" if not np.isfinite(size_dev) else f"{size_dev:+.2f}%"
-        self.metrics.setText(
-            f"εb / εd = {err}; εγ = {ang}; min угол места = {min_elev:.2f}°; "
-            f"внешняя сторона ≈ {observation['outer_side_deg'][k]:.3f}°; "
-            f"отклонение среднего размера от tan(θ) = {size_text} "
-            f"(отдельный показатель, не входит в допуски формы).")
-        if "grid_metrics" in result.metadata:
-            gm = result.metadata["grid_metrics"]
-            self.metrics.setText(self.metrics.text()+
-                f" Вся сетка: отклонение точки {gm['point_error_steps'][k]:.3f} шага; "
-                f"неравномерность шага {gm['neighbor_step_error'][k]:.3f}; "
-                f"max εb ячейки {gm['max_cell_side_error'][k]:.3f}, "
-                f"max εd ячейки {gm['max_cell_diagonal_error'][k]:.3f}, "
-                f"max εγ ячейки {gm['max_cell_angle_error_deg'][k]:.2f}°; "
-                f"min истинный угол соседей {gm['min_true_neighbor_angle_deg'][k]:.3f}°.")
-        sides = ", ".join(f"{v:.4f}" for v in result.square_sides_gnomonic[k])
-        diagonals = ", ".join(f"{v:.4f}" for v in result.square_diagonals_gnomonic[k])
-        angles = ", ".join(f"{np.rad2deg(v):.1f}" for v in result.square_angles_rad[k])
-        self.geometry.setText(f"Фактические стороны b₀…b₃ = [{sides}] и диагонали d₁,d₂ = [{diagonals}] "
-                              f"в безразмерной картинной плоскости; углы γ₀…γ₃ = [{angles}]°.")
-        fit_text = ""
-        if result.metadata.get("variant") == "fitted":
-            speeds = [item["initial_speed_m_s"] for item in result.metadata["fit_details"]]
-            fit_text = (f" Подбор на ±{result.metadata['fit_half_window_s']:g} с; "
-                        f"начальные |v_rel| = {', '.join(f'{v:.1f}' for v in speeds)} м/с.")
-        self.info.setText(f"Источник: {result.metadata['source']}. max ||ρ||/a₀ = "
-                          f"{result.metadata['max_rho_over_a']:.4f}; min высота КА = "
-                          f"{result.metadata['min_altitude_km']:.2f} км. "
-                          f"{result.metadata['warning']}{fit_text}")
+        obs=r.metadata["observability"]
+        quality=r.metadata["quality"]
+        good=bool(obs["eligible"][k])
+        longest=quality["longest_interval_s"]
+        interval=(f"{longest[0]:g}…{longest[1]:g} с ({quality['longest_contiguous_duration_s']:.0f} с)" if quality["has_positive_duration_interval"] else "отсутствует")
+        visible=obs["visibility_intervals_s"]
+        vis_text=", ".join(f"{a:g}…{b:g} с" for a,b in visible) or "нет"
+        self.observable_badge.setText(f"{'● Вся сетка приемлема сейчас' if good else '● Сетка сейчас неприемлема: '+obs['reasons'][k]}. Видимость всех КА: {vis_text}. Подходящий интервал пролёта: {interval}.")
+        self.observable_badge.setStyleSheet("background:#d9f4e3;color:#145b32;padding:5px;" if good else "background:#ffe3df;color:#8b241d;padding:5px;")
+        audit=self.study_record["verification"]
+        closest=audit["closest_pair"]
+        threshold=audit["absolute_minimum_requirement_km"]
+        self.safety_badge.setText(f"Минимум между КА сейчас: {r.min_pair_distance_km[k]:.3f} км. Минимум за проверенный интервал: {closest['distance_km']:.3f} км, пара {closest['pair']}, t={closest['t_s']:.1f} с, {closest['latitude_deg']:.1f}° / {closest['longitude_deg']:.1f}°. Порог: размеры КА + принятый запас = {threshold:g} км (условный). Горизонт проверки: {audit['horizon_days']:g} сут. от эпохи, плюс начало первого пролёта; все {audit['pair_count']} пар.")
+        self.safety_badge.setStyleSheet("background:#e7edf8;color:#1c3764;padding:5px;" if closest["distance_km"]>=threshold else "background:#fff0d9;color:#805015;padding:5px;")
+        gm=r.metadata["grid_metrics"]
+        errors=r.shape_errors[k]
+        self.metrics.setText(f"Внешняя сторона: {obs['outer_side_deg'][k]:.3f}° (цель {self.angular_side.value():g}°); min истинный угол соседей: {gm['min_true_neighbor_angle_deg'][k]:.3f}°; min угол места: {obs['min_elevation_deg'][k]:.2f}°. Ошибки формы: εb={errors[0]:.3f}, εd={errors[1]:.3f}, εγ={np.rad2deg(errors[2]):.2f}°; отклонение узлов {gm['point_error_steps'][k]:.3f} шага, неравномерность {gm['neighbor_step_error'][k]:.3f}.")
+        sp=r.metadata["spatial_size_metrics"]
+        corners=", ".join(f"{x:.2f}" for x in sp["corner_sides_km"][k])
+        diagonals=", ".join(f"{x:.2f}" for x in sp["corner_diagonals_km"][k])
+        self.geometry.setText(f"В пространстве: соседние стороны {sp['min_neighbor_km'][k]:.2f}…{sp['max_neighbor_km'][k]:.2f} км; стороны между крайними углами [{corners}] км; диагонали крайних углов [{diagonals}] км; max любой пары {sp['max_pair_km'][k]:.2f} км.")
+        self.note.setText("Внешняя угловая сторона = atan(средней длины 4 сторон крайнего контура на гномонической плоскости). Расстояния в км относятся к КА между собой; дальность до наблюдателя сюда не входит. Центр локальной системы — расчётная точка, не дополнительный КА.")
 
-    def _draw_projection(self,k):
-        r = self.result
-        ax = self.proj.axes
+    def _draw_grid(self,canvas,points,target,all_points,title,xlabel,ylabel):
+        ax=canvas.axes
         ax.clear()
-        to_deg = lambda x: np.rad2deg(np.arctan(x))
-        if r.metadata.get("grid_size",2) > 2:
-            self._draw_grid_2d(ax,to_deg(r.image_gnomonic[k]),
-                to_deg(r.target_image_gnomonic),
-                to_deg(r.image_gnomonic.reshape(-1,2)),
-                "Гномоническая проекция", "atan(ξ), ° — координатный угол",
-                "atan(η), ° — координатный угол",self.proj)
-            return
-        target = to_deg(r.target_image_gnomonic[:4])
-        ax.plot(*np.r_[target,target[:1]].T, "--", color="#888888", label="цель в зените")
-        p = to_deg(r.image_gnomonic[k,:4])
-        if np.isfinite(p).all():
-            ax.plot(*np.r_[p,p[:1]].T, color="#303030",linewidth=1.5,label="фактически")
-        for j, point in enumerate(p):
-            if np.isfinite(point).all():
-                ax.scatter(*point,color=COLORS[j],s=65,zorder=3)
-                ax.annotate(str(j),point,xytext=(5,5),textcoords="offset points",fontsize=10)
-        all_points = to_deg(r.image_gnomonic.reshape(-1,2))
-        finite = all_points[np.isfinite(all_points).all(axis=1)]
-        both = np.vstack((target,finite)) if len(finite) else target
-        low, high = np.min(both,axis=0), np.max(both,axis=0)
-        center=(low+high)/2
-        radius=max(float(np.max(high-low))/2*1.12, 0.5)
-        ax.set_xlim(center[0]-radius,center[0]+radius)
-        ax.set_ylim(center[1]-radius,center[1]+radius)
-        ax.set_aspect("equal",adjustable="box")
-        ax.set_title("Гномоническая проекция")
-        ax.set_xlabel("atan(ξ), ° — координатный угол")
-        ax.set_ylabel("atan(η), ° — координатный угол")
-        ax.grid(alpha=.3)
-        ax.legend(loc="best",fontsize=8)
-        self.proj.draw_idle()
-
-    def _draw_yoz(self,k):
-        result = self.result
-        ax = self.yoz.axes
-        ax.clear()
-        if result.metadata.get("grid_size",2) > 2:
-            self._draw_grid_2d(ax,result.rho_oso_km[k,:,1:3],
-                result.target_yoz_km,result.rho_oso_km[:,:,1:3].reshape(-1,2),
-                "Пространственная конфигурация yOz", "y ОСО, км", "z ОСО, км",self.yoz)
-            return
-        target = result.target_yoz_km[:4]
-        actual = result.rho_oso_km[k,:4,1:3]
-        ax.plot(*np.r_[target,target[:1]].T,"--",color="#888888",label="целевой контур ОСО")
-        ax.plot(*np.r_[actual,actual[:1]].T,color="#303030",linewidth=1.5,label="фактически")
-        for j,point in enumerate(actual):
-            ax.scatter(*point,color=COLORS[j],s=65,zorder=3)
-            ax.annotate(str(j),point,xytext=(5,5),textcoords="offset points",fontsize=10)
-        all_points = np.concatenate((result.rho_oso_km[:,:4,1:3].reshape(-1,2),target))
-        low,high = np.min(all_points,axis=0),np.max(all_points,axis=0)
-        center = (low+high)/2
-        radius = max(float(np.max(high-low))*0.56,1.0)
-        ax.set_xlim(center[0]-radius,center[0]+radius)
-        ax.set_ylim(center[1]-radius,center[1]+radius)
-        ax.set_aspect("equal",adjustable="box")
-        ax.set_title("Пространственная конфигурация yOz")
-        ax.set_xlabel("y ОСО, км")
-        ax.set_ylabel("z ОСО, км")
-        ax.grid(alpha=.3)
-        ax.legend(loc="best",fontsize=8)
-        self.yoz.draw_idle()
-
-    def _draw_grid_2d(self,ax,points,target,all_points,title,xlabel,ylabel,canvas):
-        indices = np.asarray(self.result.metadata["grid_indices"])
-        size = len(indices)
-        colors = plt.get_cmap("viridis",size)
+        ids=np.asarray(self.result.metadata["grid_indices"])
+        size=len(ids)
+        colors=plt.get_cmap("viridis",size)
         for row in range(size):
-            ax.plot(*target[indices[row]].T,"--",color="#a7a7a7",linewidth=.7,alpha=.7)
-            ax.plot(*points[indices[row]].T,color="#165f84",linewidth=1.1,alpha=.85)
+            ax.plot(*target[ids[row]].T,"--",color="#a7a7a7",linewidth=.7,alpha=.7)
+            ax.plot(*points[ids[row]].T,color="#165f84",linewidth=1.1,alpha=.85)
         for col in range(size):
-            ax.plot(*target[indices[:,col]].T,"--",color="#a7a7a7",linewidth=.7,alpha=.7)
-            ax.plot(*points[indices[:,col]].T,color="#bd6a24",linewidth=1.1,alpha=.85)
-        color_by_index = np.empty((size*size,4))
-        for row in range(size):
-            color_by_index[indices[row]] = colors(row)
-        ax.scatter(points[:,0],points[:,1],c=color_by_index,s=19,zorder=3)
-        corners = self.result.metadata["corner_indices"]
-        for j in corners:
+            ax.plot(*target[ids[:,col]].T,"--",color="#a7a7a7",linewidth=.7,alpha=.7)
+            ax.plot(*points[ids[:,col]].T,color="#bd6a24",linewidth=1.1,alpha=.85)
+        rgba=np.empty((size*size,4))
+        for row in range(size): rgba[ids[row]]=colors(row)
+        ax.scatter(points[:,0],points[:,1],c=rgba,s=19,zorder=3)
+        for j in self.result.metadata["corner_indices"]:
             if np.isfinite(points[j]).all():
                 ax.annotate(str(j),points[j],xytext=(4,4),textcoords="offset points",fontsize=8)
-        finite = all_points[np.isfinite(all_points).all(axis=1)]
-        combined = np.vstack((target,finite)) if len(finite) else target
-        low,high = np.min(combined,axis=0),np.max(combined,axis=0)
+        finite=all_points[np.isfinite(all_points).all(axis=1)]
+        combined=np.vstack((target,finite)) if len(finite) else target
+        low,high=np.min(combined,axis=0),np.max(combined,axis=0)
         center=(low+high)/2
-        radius=max(float(np.max(high-low))*0.56,0.5 if "atan" in xlabel else 1.0)
+        radius=max(float(np.max(high-low))*.56,.5 if "atan" in xlabel else 1.)
         ax.set_xlim(center[0]-radius,center[0]+radius)
         ax.set_ylim(center[1]-radius,center[1]+radius)
         ax.set_aspect("equal",adjustable="box")
-        ax.set_title(title)
-        ax.set_xlabel(xlabel)
-        ax.set_ylabel(ylabel)
+        ax.set(title=title,xlabel=xlabel,ylabel=ylabel)
         ax.grid(alpha=.3)
         canvas.draw_idle()
 
+    def _draw_projection(self,k):
+        r=self.result
+        angle=lambda x:np.rad2deg(np.arctan(x))
+        self._draw_grid(self.proj,angle(r.image_gnomonic[k]),angle(r.target_image_gnomonic),
+            angle(r.image_gnomonic.reshape(-1,2)),"Гномоническая проекция",
+            "atan(ξ), ° — координатный угол","atan(η), ° — координатный угол")
+
+    def _draw_yoz(self,k):
+        r=self.result
+        self._draw_grid(self.yoz,r.rho_oso_km[k,:,1:3],r.target_yoz_km,
+            r.rho_oso_km[:,:,1:3].reshape(-1,2),"Конфигурация yOz от центра группы",
+            "y, км","z, км")
+
     def _draw_space(self,k):
-        r = self.result
-        ax = self.space.axes
+        r=self.result
+        ax=self.space.axes
         ax.clear()
-        local = self.view.currentIndex() == 0
-        if local:
-            xyz = r.rho_oso_km
-            label = ("x ОСО, км", "y ОСО, км", "z ОСО, км")
-            low = np.min(xyz,axis=(0,1))
-            high = np.max(xyz,axis=(0,1))
-            center = (low+high)/2
-            radius = max(1.0,float(np.max(high-low))*0.575)
-            bounds = [(c-radius,c+radius) for c in center]
-            ax.set_title("Локальная ОСО: относительные траектории")
+        mode=self.view.currentData()
+        if mode=="local":
+            xyz=r.rho_oso_km
+            low=np.min(xyz,axis=(0,1)); high=np.max(xyz,axis=(0,1))
+            center=(low+high)/2
+            radius=max(1.,float(np.max(high-low))*.575)
+            bounds=[(c-radius,c+radius) for c in center]
+            labels=("x, км","y, км","z, км")
+            ax.set_title("Локальная система: центр группы")
         else:
-            xyz = r.r_eci_km
-            label = ("X ECI, км", "Y ECI, км", "Z ECI, км")
-            orbit = r.reference_orbit_eci_km
-            ax.plot(*orbit.T,color="#888888",linewidth=.9,label="номинальная орбита: полный виток")
-            re = r.metadata["orbit_radius_km"]
-            u = np.linspace(0,2*np.pi,25)
-            v = np.linspace(0,np.pi,13)
-            earth = np.array([re*np.outer(np.cos(u),np.sin(v)),
-                              re*np.outer(np.sin(u),np.sin(v)),
-                              re*np.outer(np.ones_like(u),np.cos(v))])
-            ax.plot_surface(*earth,color="#9fc4e9",alpha=.38,linewidth=0)
-            limit = re+r.metadata["reference_altitude_km"]+150
-            bounds = [(-limit,limit)]*3
-            ax.set_title("Инерциальный вид: доступный участок КА")
-        if r.metadata.get("grid_size",2)>2:
-            ids = np.asarray(r.metadata["grid_indices"])
-            size = len(ids)
-            corner_ids = r.metadata["corner_indices"]
-            selected = list(dict.fromkeys(corner_ids+[int(ids[size//2,size//2])]))
-            for j in selected:
-                if j == 0:
-                    continue
-                start = max(0,k-40) if local else 0
-                ax.plot(*xyz[start:k+1,j].T,color=COLORS[j%len(COLORS)],linewidth=1.4)
-            rows = np.empty(size*size,dtype=int)
-            for row in range(size):
-                rows[ids[row]] = row
-            ax.scatter(*xyz[k].T,c=rows,cmap="viridis",s=28 if local else 12,
-                       depthshade=False)
-            for j in corner_ids:
-                ax.text(*xyz[k,j],f" {j}",fontsize=8)
-        else:
-            for j in range(1,xyz.shape[1]):
-                start = max(0,k-40) if local else 0
-                ax.plot(*xyz[start:k+1,j].T,color=COLORS[j%len(COLORS)],linewidth=2)
-            for j in range(xyz.shape[1]):
-                ax.scatter(*xyz[k,j],color=COLORS[j%len(COLORS)],s=90 if local else 55,depthshade=False)
-                ax.text(*xyz[k,j],f" {j}",color=COLORS[j%len(COLORS)])
-        ax.set(xlim=bounds[0],ylim=bounds[1],zlim=bounds[2],xlabel=label[0],ylabel=label[1],zlabel=label[2])
+            xyz=r.r_eci_km
+            labels=("X ECI, км","Y ECI, км","Z ECI, км")
+            if mode=="eci_close":
+                center=xyz[k,0]
+                radius=max(20.,float(np.max(np.linalg.norm(xyz-xyz[:,0:1],axis=2)))*.75)
+                bounds=[(c-radius,c+radius) for c in center]
+                ax.set_title("ECI: приближение к КА 0")
+            else:
+                re=r.metadata["orbit_radius_km"]
+                u=np.linspace(0,2*np.pi,25); v=np.linspace(0,np.pi,13)
+                earth=np.array([re*np.outer(np.cos(u),np.sin(v)),
+                    re*np.outer(np.sin(u),np.sin(v)),re*np.outer(np.ones_like(u),np.cos(v))])
+                ax.plot_surface(*earth,color="#9fc4e9",alpha=.38,linewidth=0)
+                ax.plot(*r.reference_orbit_eci_km.T,color="#888",linewidth=.9)
+                limit=re+r.metadata["reference_altitude_km"]+150
+                bounds=[(-limit,limit)]*3
+                ax.set_title("ECI: общий вид с Землёй")
+        ids=np.asarray(r.metadata["grid_indices"])
+        size=len(ids)
+        corners=r.metadata["corner_indices"]
+        selected=list(dict.fromkeys(corners+[int(ids[size//2,size//2])]))
+        for j in selected:
+            start=max(0,k-40)
+            ax.plot(*xyz[start:k+1,j].T,color="#165f84",linewidth=1.4)
+        rows=np.empty(size*size,dtype=int)
+        for row in range(size): rows[ids[row]]=row
+        ax.scatter(*xyz[k].T,c=rows,cmap="viridis",s=28 if mode=="local" else 18,depthshade=False)
+        for j in corners: ax.text(*xyz[k,j],f" {j}",fontsize=8)
+        ax.set(xlim=bounds[0],ylim=bounds[1],zlim=bounds[2],
+               xlabel=labels[0],ylabel=labels[1],zlabel=labels[2])
         ax.set_box_aspect((1,1,1))
         self.space.draw_idle()
 
     def closeEvent(self,event):
-        self.audit_timer.stop()
-        self.audit_executor.shutdown(wait=False,cancel_futures=True)
         self.analysis_timer.stop()
         self.analysis_executor.shutdown(wait=False,cancel_futures=True)
         super().closeEvent(event)
 
 
 def run():
-    app = QApplication.instance() or QApplication([])
-    plt.rcParams["font.family"] = "DejaVu Sans"
-    window = DemoWindow()
+    app=QApplication.instance() or QApplication([])
+    plt.rcParams["font.family"]="DejaVu Sans"
+    window=DemoWindow()
     window.show()
     return app.exec()

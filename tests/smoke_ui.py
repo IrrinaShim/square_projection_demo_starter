@@ -1,188 +1,110 @@
-"""Короткая проверка окна: QT_QPA_PLATFORM=offscreen .venv/bin/python tests/smoke_ui.py"""
+"""QT_QPA_PLATFORM=offscreen .venv/bin/python tests/smoke_ui.py"""
+import json
 import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
+
 import numpy as np
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-from PySide6.QtCore import QTimer
+from PySide6.QtCore import QEventLoop, QTimer
 from PySide6.QtWidgets import QApplication
+
+sys.path.insert(0,str(Path(__file__).resolve().parent.parent))
 from square_demo.ui import DemoWindow
 
-app = QApplication([])
-window = DemoWindow()
-window.show()
-assert window.result.metadata["mode"] == "free_hcw_two_body"
-assert window.result.metadata["variant"] == "fitted"
-assert window.view.currentIndex() == 0
-assert not hasattr(window,"control")
-assert "период" in window.parameters.text()
-assert "подобраны по проекции" in window.parameters.text()
-window.initial_button.click()
-assert window.initial_table.isVisible()
-assert window.initial_table.item(0,1).text() != "—"
-window.initial_button.click()
-zenith = int(abs(window.result.t_s).argmin())
-assert abs(window.result.image_gnomonic[zenith]-window.result.target_image_gnomonic).max() < 1e-12
-window.time_slider.setValue(zenith)
-assert "приемлем" in window.observable_badge.text()
-assert "#d9f4e3" in window.observable_badge.styleSheet()
-assert abs(window.result.metadata["observability"]["size_deviation_percent"][zenith]) < 1e-8
-projected_at_zenith = np.asarray(window.proj.axes.lines[1].get_xydata()).copy()
-yoz_at_zenith = np.asarray(window.yoz.axes.lines[1].get_xydata()).copy()
-window.time_slider.setValue(0)
-assert "неприемлем" in window.observable_badge.text()
-assert "угол места" in window.observable_badge.text()
-assert not np.allclose(window.proj.axes.lines[1].get_xydata(),projected_at_zenith)
-assert not np.allclose(window.yoz.axes.lines[1].get_xydata(),yoz_at_zenith)
-assert window.timeline.eligible[zenith] and not window.timeline.eligible[0]
-assert window.result.metadata["quality"]["zenith_contiguous_duration_s"] > window.variants["trial"].metadata["quality"]["zenith_contiguous_duration_s"]
-window.variant.setCurrentIndex(1)
-assert window.result.metadata["variant"] == "trial"
-assert "не подтверждена как безопасная" in window.safety_badge.text()
-window.variant.setCurrentIndex(2)
-assert window.result.metadata["variant"] == "ideal"
-window.variant.setCurrentIndex(0)
-window.fields["angular_side_deg"].setValue(20)
-window.calculate_current()
-assert window.result.metadata["angular_side_deg"] == 20
-assert "20.000000°" in window.parameters.text()
-window.time_slider.setValue(15)
-assert window.time_slider.value() == 15
-window.toggle_play()
-QTimer.singleShot(600,app.quit)
-app.exec()
-assert window.timer.isActive() and window.time_slider.value() > 15
-window.toggle_play()
-window.mode.setCurrentIndex(1)
-assert window.result.metadata["mode"] == "legacy_replay"
-assert not window.fields["angular_side_deg"].isEnabled()
-assert "исторические состояния CSV" in window.parameters.text()
-window.initial_button.click()
-assert window.initial_table.item(0,1).text() == "—"
-window.initial_button.click()
-window.view.setCurrentIndex(1)
-window.time_slider.setValue(120)
-window.toggle_play()
-QTimer.singleShot(600,app.quit)
-app.exec()
-assert window.time_slider.value() > 120
-window.toggle_play()
-app.processEvents()
-assert "Наблюдаемый квадрат" in window.observable_badge.text()
-window.show()
-window.mode.setCurrentIndex(2)
-assert window.result.metadata["mode"] == "independent_j2"
-assert "J₂" in window.parameters.text()
-assert "полном витке" in window.safety_badge.text()
-window.elements_button.click()
-assert window.elements_table.isVisible(), (window.elements_button.isChecked(),
-                                          window.elements_button.isVisible(),
-                                          window.elements_table.isHidden())
-assert window.elements_table.item(3,1).text() != ""
-window.elements_button.click()
-zenith = int(abs(window.result.t_s).argmin())
-window.time_slider.setValue(zenith)
-assert "приемлем" in window.observable_badge.text()
-projected = np.asarray(window.proj.axes.lines[1].get_xydata()).copy()
-window.time_slider.setValue(0)
-assert not np.allclose(window.proj.axes.lines[1].get_xydata(),projected)
-window.view.setCurrentIndex(0)
-window.toggle_play()
-QTimer.singleShot(330,app.quit)
-app.exec()
-assert window.time_slider.value() > 0
-window.toggle_play()
-window.close()
-window = DemoWindow()
-window.show()
-window.mode.setCurrentIndex(2)
-window.grid_size.setValue(3)
-window.calculate_current()
-assert window.result.r_eci_km.shape == (181,9,3)
-assert "выполняется" in window.safety_badge.text()
-assert len(window.proj.axes.collections) >= 1
-with TemporaryDirectory() as temporary:
-    path = Path(temporary)/"elements.json"
-    window.export_orbit_elements(path)
-    import json
-    data = json.loads(path.read_text(encoding="utf-8"))
-    assert len(data["elements_at_epoch"]) == 9
-window.grid_size.setValue(10)
-window.calculate_current()
-assert window.result.r_eci_km.shape == (181,100,3)
-assert "выполняется" in window.safety_badge.text()
-assert window.elements_table.rowCount() == 100
-window.time_slider.setValue(90)
-assert "Вся сетка" in window.metrics.text()
-poll = QTimer()
-poll.timeout.connect(lambda: app.quit() if window.result.metadata["audit_status"] == "complete" else None)
-poll.start(100)
-QTimer.singleShot(12000,app.quit)
-app.exec()
-poll.stop()
-assert window.result.metadata["audit_status"] == "complete"
-assert window.result.metadata["full_orbit_audit"]["pair_count"] == 4950
-window.mode.setCurrentIndex(3)
-window.grid_size.setValue(2)
-assert window.result.metadata["audit_status"] == "study_saved"
-assert window.result.metadata["study_status"] == "выполнены частично"
-assert "30 сут." in window.study_status_label.text()
-assert window.elements_table.rowCount() == 4
-for n in (2,4,7,9,10):
-    window.grid_size.setValue(n)
-    assert window.result.r_eci_km.shape == (181,n*n,3)
-    assert window.elements_table.rowCount() == n*n
-    assert len(window.proj.axes.collections) >= 1
-    assert len(window.yoz.axes.collections) >= 1
-    assert window.result.metadata["audit_status"] == "study_saved"
-    if n in (9,10):
-        assert window.result.metadata["study_status"] == "нет проверенного решения"
-        assert not window.result.metadata["quality"]["has_positive_duration_interval"]
-        assert "Запас нарушен" in window.safety_badge.text()
-window.grid_size.setValue(3)
-assert "выполнены частично" in window.study_status_label.text()
-window.time_slider.setValue(0)
-assert "угол места" in window.observable_badge.text()
-window.time_slider.setValue(90)
-assert "внешняя сторона" in window.metrics.text()
-assert window.timeline.eligible.shape == (181,)
-window.toggle_play()
-QTimer.singleShot(330,app.quit)
-app.exec()
-assert window.time_slider.value() > 90
-window.toggle_play()
-window.close()
-window = DemoWindow()
-window.show()
-window.mode.setCurrentIndex(3)
-with TemporaryDirectory() as temporary:
-    window.grid_size.setValue(5)
-    window.long_horizon.setValue(.2)
-    window.start_long_analysis(temporary)
-    assert window.analysis_future is not None
-    poll = QTimer()
-    poll.timeout.connect(lambda: app.quit() if window.analysis_future is None else None)
+app=QApplication([])
+w=DemoWindow()
+w.show()
+assert w.mode.count()==2
+assert [w.mode.itemText(i) for i in range(2)]==["Без управления","С управлением"]
+assert not hasattr(w,"variant") and not hasattr(w,"comparison")
+assert w.grid_size.value()==10 and w.angular_side.value()==20
+assert w.angular_side.maximum()==30
+assert w.result is None
+assert "Сохранённый набор N=10 имеет сторону 10°" in w.status.text()
+assert not w.play_button.isEnabled()
+w.angular_side.setValue(10)
+assert w.result is not None and w.result.r_eci_km.shape==(181,100,3)
+assert w.scenario["angular_side_deg"]==10
+assert w.study_record["parameters"]["side_deg"]==10
+assert "нет проверенного решения" in w.status.text()
+assert "Подходящий интервал пролёта: отсутствует" in w.observable_badge.text()
+assert "Минимум между КА сейчас" in w.safety_badge.text()
+assert "Порог: размеры КА + принятый запас" in w.safety_badge.text()
+assert "соседние стороны" in w.geometry.text()
+assert abs(w.result.rho_oso_km.mean(axis=1)).max()<1e-9
+assert len(w.result.metadata["orbital_elements"])==100
+assert w.elements_button.isEnabled()
+w.elements_button.click()
+assert w.elements_table.isVisible() and w.elements_table.rowCount()==100
+w.elements_button.click()
+local=np.array(w.space.axes.get_xlim())
+w.view.setCurrentIndex(1)
+close=np.array(w.space.axes.get_xlim())
+chief=w.result.r_eci_km[w.time_slider.value(),0,0]
+assert abs(close.mean()-chief)<1e-8
+assert close[1]-close[0]<1000
+w.view.setCurrentIndex(2)
+wide=np.array(w.space.axes.get_xlim())
+assert wide[1]-wide[0]>10000
+w.view.setCurrentIndex(0)
+assert np.allclose(w.space.axes.get_xlim(),local)
+
+for n,side in ((2,20),(3,10),(10,10)):
+    w.grid_size.setValue(n)
+    w.angular_side.setValue(side)
+    assert w.result is not None,(n,side,w.status.text())
+    assert w.result.r_eci_km.shape==(181,n*n,3)
+    assert w.scenario["angular_side_deg"]==side
+    assert w.study_record["parameters"]["side_deg"]==side
+    assert w.elements_table.rowCount()==n*n
+    assert w.result.metadata["spatial_size_metrics"]["min_neighbor_km"].shape==(181,)
+    before=np.asarray(w.proj.axes.lines[0].get_xydata()).copy()
+    w.time_slider.setValue(0)
+    assert "угол места" in w.observable_badge.text()
+    after=np.asarray(w.proj.axes.lines[1].get_xydata()).copy()
+    assert not np.allclose(before,after)
+    assert w.timeline.eligible.shape==(181,)
+    assert len(w.yoz.axes.collections)>0
+
+w.grid_size.setValue(2);w.angular_side.setValue(20)
+w.time_slider.setValue(90)
+w.toggle_play()
+loop=QEventLoop()
+QTimer.singleShot(450,loop.quit)
+loop.exec()
+assert w.time_slider.value()>90
+w.toggle_play()
+with TemporaryDirectory() as tmp:
+    p=Path(tmp)/"elements.json"
+    w.export_orbit_elements(p)
+    data=json.loads(p.read_text(encoding="utf-8"))
+    assert len(data["elements_at_epoch"])==4
+    assert data["epoch_utc"]=="2026-09-28T00:00:00Z"
+    w.long_horizon.setValue(.2)
+    w.start_long_analysis(tmp)
+    loop=QEventLoop()
+    poll=QTimer()
+    poll.timeout.connect(lambda:loop.quit() if w.analysis_future is None else None)
     poll.start(100)
-    QTimer.singleShot(30000,app.quit)
-    app.exec()
+    QTimer.singleShot(30000,loop.quit)
+    loop.exec()
     poll.stop()
-    assert window.analysis_future is None, "отдельный расчёт превысил 30 с"
-    assert "файлы:" in window.long_status.text(),window.long_status.text()
-    folders = list(Path(temporary).glob("N5_*"))
-    assert len(folders) == 1
+    assert w.analysis_future is None
+    assert "файлы:" in w.long_status.text(),w.long_status.text()
+    folders=list(Path(tmp).glob("N2_*"))
+    assert len(folders)==1
     assert {"case.json","passes.csv","pair_minima.csv","passes.png",
-            "shape_quality.png","pair_minima.png"} <= {p.name for p in folders[0].iterdir()}
-    data = __import__("json").loads((folders[0]/"case.json").read_text(encoding="utf-8"))
-    assert len(data["elements_at_epoch"]) == 25
-    assert data["verification"]["pair_count"] == 300
-from unittest.mock import patch
-with patch("square_demo.ui.load_study_case",side_effect=ValueError("несовместимая модель")), \
-     patch("square_demo.ui.QMessageBox.warning"):
-    window.calculate_current()
-assert window.result is None
-assert window.timeline.times is None
-assert "несовместимая модель" in window.study_status_label.text()
-print("OK: HCW, J₂, CSV и orbit_study N=2..10; геометрия, индикаторы, анимация, отдельный анализ")
-window.close()
+            "shape_quality.png","pair_minima.png"}<={p.name for p in folders[0].iterdir()}
+
+w.angular_side.setValue(30)
+assert w.result is None and "требуется новый подбор" in w.status.text()
+w.angular_side.setValue(20)
+assert w.result is not None
+w.mode.setCurrentIndex(1)
+assert w.result is None and "Историческая траектория не является" in w.status.text()
+w.mode.setCurrentIndex(0)
+assert w.result is not None
+w.grid_size.setValue(10)
+assert w.result is None and "сторону 10°" in w.status.text()
+print("OK: два режима, N=2/3/10, стороны 10°/20°/30°, неподмена орбит, центр группы, камера, экспорт и отдельный расчёт")
+w.close()

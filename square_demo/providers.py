@@ -7,8 +7,9 @@ from pathlib import Path
 import numpy as np
 
 from .core import (assemble, assemble_absolute, hcw_free, hcw_transition,
+                   spatial_size_metrics,
                    image_frame, observer_eci, zenith_orbit)
-from .orbit_j2 import (elements_to_state, integrate, orbital_basis,
+from .orbit_j2 import (centroid_relative_frame, elements_to_state, integrate, orbital_basis,
                        separation_audit)
 from .grid import grid_indices, initial_grid_from_corners
 
@@ -260,8 +261,8 @@ def independent_j2(scenario, include_audit=True):
         raise ValueError("Некорректный J₂")
     _observer(scenario["observer"])
     theta = float(scenario["angular_side_deg"])
-    if not np.isfinite(theta) or not 1 <= theta <= 20:
-        raise ValueError("Угловая сторона должна быть в пределах 1–20°")
+    if not np.isfinite(theta) or not 1 <= theta <= 30:
+        raise ValueError("Угловая сторона должна быть в пределах 1–30°")
     size = scenario.get("grid_size",2)
     grid_indices(size)
     for key in ("min_neighbor_angle_deg","max_point_error_steps",
@@ -325,6 +326,9 @@ def independent_j2(scenario, include_audit=True):
     orbit_line = integrate(initial[0:1],line_t,mu,re,j2,max_step)[:,0,0]
     threshold = _positive(scenario["safety"]["illustrative_min_separation_km"],"Порог сближения")
     basis = orbital_basis(display[:,0])
+    if full_elements:
+        center,center_velocity,basis,local_position,local_velocity = (
+            centroid_relative_frame(display,mu,re,j2))
     robs = observer_eci(t,0,re,scenario["observer"])
     accel = np.zeros((len(t)-1,size*size,3))  # гравитационное J₂ не является тягой
     warning = (f"{size*size} независимых абсолютных орбит с J₂ без тяги. "
@@ -343,6 +347,11 @@ def independent_j2(scenario, include_audit=True):
         "safety_horizon":"один номинальный виток опорного КА от общей эпохи",
         "audit_status":"pending",
     })
+    if full_elements:
+        metadata.update({"local_frame_origin":"centroid",
+            "center_eci_km":center,"center_velocity_eci_km_s":center_velocity,
+            "local_velocity_oso_km_s":local_velocity,
+            "local_frame_orientation":"e_x=r0/|r0|; e_z=(r0×v0)/|r0×v0|; e_y=e_z×e_x"})
     b0 = orbital_basis(initial[0:1])
     relative = initial[:,0]-initial[0,0]
     relative_oso = (b0[0].T@relative.T).T
@@ -356,6 +365,9 @@ def independent_j2(scenario, include_audit=True):
     metadata["initial_lambda_km"] = np.linalg.norm(initial[1:,0]-obs0,axis=1)
     result = assemble_absolute(t,display[:,:,0],basis,robs,accel,target,orbit,
                                metadata,orbit_line,period)
+    result.metadata["spatial_size_metrics"]=spatial_size_metrics(result.r_eci_km,size)
+    if full_elements and not np.allclose(result.rho_oso_km,local_position,atol=1e-9):
+        raise ValueError("Центрированная локальная геометрия несогласована")
     if include_audit:
         result.metadata.update(audit_independent_grid(scenario,all_elements))
     return result

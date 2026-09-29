@@ -9,7 +9,8 @@ import numpy as np
 from orbit_study.model import reconstruct
 from orbit_study.provenance import physics_fingerprint, solutions_fingerprint
 from square_demo.providers import calculate
-from square_demo.study import SOLUTIONS, load_study_case, study_status
+from square_demo.study import (CandidateUnavailable, SOLUTIONS,
+                               load_study_case, study_status)
 
 
 class StudyAdapterTests(unittest.TestCase):
@@ -52,6 +53,12 @@ class StudyAdapterTests(unittest.TestCase):
             p.write_text(json.dumps(tampered),encoding="utf-8")
             with self.assertRaisesRegex(ValueError,"содержимое"):
                 load_study_case(2,solutions_path=p)
+
+    def test_exact_external_side_required(self):
+        self.assertEqual(load_study_case(10,outer_side_deg=10)[0]["angular_side_deg"],10)
+        for side in (20,30):
+            with self.assertRaises(CandidateUnavailable):
+                load_study_case(10,outer_side_deg=side)
 
 
 if __name__=="__main__":
