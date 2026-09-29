@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 from concurrent.futures import ThreadPoolExecutor
+from queue import Empty, Queue
 from threading import Event
 from pathlib import Path
 
@@ -14,7 +15,7 @@ from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QColor, QPainter
 from PySide6.QtWidgets import (QApplication, QComboBox, QDoubleSpinBox, QFileDialog,
     QFormLayout, QGroupBox, QHBoxLayout, QLabel, QMainWindow, QPushButton,
-    QSlider, QSpinBox, QSplitter, QTableWidget, QTableWidgetItem, QToolButton,
+    QLineEdit, QSlider, QSpinBox, QSplitter, QTableWidget, QTableWidgetItem, QToolButton,
     QVBoxLayout, QWidget)
 
 from .drag_provider import calculate_drag_case
@@ -98,6 +99,8 @@ class DemoWindow(QMainWindow):
         self._future=None
         self._cancel_event=None
         self._generation=0
+        self._progress=Queue()
+        self._pending_optimization=False
         self._debounce=QTimer(self)
         self._debounce.setSingleShot(True)
         self._debounce.setInterval(350)
@@ -156,10 +159,13 @@ class DemoWindow(QMainWindow):
         self.orbit_inclination=QDoubleSpinBox(); self.orbit_inclination.setRange(0,180); self.orbit_inclination.setDecimals(3); self.orbit_inclination.setValue(97.8); self.orbit_inclination.setSuffix(" °")
         self.orbit_parameters=QLabel("—")
         self.epoch=QLabel("—")
+        self.epoch_input=QLineEdit("2026-09-28T00:00:00Z")
+        self.epoch_input.setToolTip("Общая UTC-эпоха оскулирующих элементов")
         orb.addRow("Высота КА 0",self.orbit_height)
         orb.addRow("Наклонение КА 0",self.orbit_inclination)
         orb.addRow("Период КА 0",self.orbit_parameters)
-        orb.addRow("Общая эпоха",self.epoch)
+        orb.addRow("Эпоха UTC (ввод)",self.epoch_input)
+        orb.addRow("Эпоха расчёта",self.epoch)
         groups.addWidget(orbit,2)
         model=QGroupBox("Модель")
         ml=QVBoxLayout(model)
@@ -183,10 +189,24 @@ class DemoWindow(QMainWindow):
         for widget in (self.observer_lat,self.observer_lon,self.elevation_limit,
                        self.orbit_height,self.orbit_inclination):
             widget.valueChanged.connect(self.calculate_current)
+        self.epoch_input.editingFinished.connect(self.calculate_current)
 
         self.status=QLabel()
         self.status.setWordWrap(True)
         root.addWidget(self.status)
+        search_controls=QHBoxLayout()
+        root.addLayout(search_controls)
+        self.search_button=QPushButton("Подобрать орбиты")
+        self.search_button.clicked.connect(self.start_optimization)
+        search_controls.addWidget(self.search_button)
+        search_controls.addWidget(QLabel("Бюджет прямых расчётов:"))
+        self.search_budget=QSpinBox();self.search_budget.setRange(4,500);self.search_budget.setValue(16)
+        search_controls.addWidget(self.search_budget)
+        self.cancel_button=QPushButton("Отменить подбор")
+        self.cancel_button.setEnabled(False)
+        self.cancel_button.clicked.connect(self.cancel_current)
+        search_controls.addWidget(self.cancel_button)
+        search_controls.addStretch(1)
         technical=QHBoxLayout()
         root.addLayout(technical)
         self.elements_button=QToolButton()
@@ -319,9 +339,10 @@ class DemoWindow(QMainWindow):
 
     def calculate_current(self,*_):
         self._generation+=1
+        self._pending_optimization=False
         if self._cancel_event is not None: self._cancel_event.set()
         self._debounce.stop()
-        self._clear_result("Параметры изменены. Выполняется подбор и проверка орбит…")
+        self._clear_result("Параметры изменены. Проверяю сохранённые орбиты; новый подбор запускается кнопкой.")
         if self.mode.currentData()=="controlled":
             self._start_calculation()
         else:
@@ -331,40 +352,76 @@ class DemoWindow(QMainWindow):
         return (self.grid_size.value(),self.angular_side.value(),2.,
                 self.observer_lat.value(),self.observer_lon.value(),
                 self.elevation_limit.value(),self.orbit_height.value(),
-                self.orbit_inclination.value())
+                self.orbit_inclination.value(),self.epoch_input.text().strip())
 
     @staticmethod
-    def _calculate_task(parameters,cancel_event):
-        scenario,candidate,audit,source=load_or_search(*parameters,cancel_event=cancel_event)
+    def _calculate_task(parameters,cancel_event,do_optimization,budget,progress):
+        size,side,resolution,lat,lon,elevation,altitude,inclination,epoch=parameters
+        if do_optimization:
+            from orbit_study.passive_optimizer import configuration, optimize
+            cfg=configuration(size,side,lat,lon,elevation,epoch,altitude,inclination)
+            optimize(cfg,size,budget=budget,cancel_event=cancel_event,progress=progress)
+        scenario,candidate,audit,source=load_or_search(size,side,resolution,lat,lon,
+            elevation,altitude,inclination,cancel_event=cancel_event,
+            epoch_utc=epoch,allow_search=False)
         if cancel_event.is_set(): raise ValueError("Расчёт отменён")
         result=calculate_drag_case(scenario,candidate)
         return scenario,candidate,audit,source,result
+
+    def start_optimization(self):
+        if self.mode.currentData()!="passive":return
+        self._generation+=1
+        if self._cancel_event is not None:self._cancel_event.set()
+        self._pending_optimization=True
+        self._debounce.stop()
+        self._clear_result("Подбор запрошен; готовлю начальные приближения…")
+        self._start_calculation()
+
+    def cancel_current(self):
+        if self._cancel_event is not None:self._cancel_event.set()
+        self._generation+=1
+        self._pending_optimization=False
+        self.status.setText("Отмена запрошена. Уже рассчитанные кандидаты сохранены; проверяю доступный результат…")
 
     def _start_calculation(self):
         size=self.grid_size.value()
         side=self.angular_side.value()
         if self.mode.currentData()=="controlled":
+            self.search_button.setEnabled(False)
             self.model_summary.setText("Расчёт управления для выбранной сетки пока не подготовлен")
             reason=("исторический случай 4 КА имеет внешнюю сторону 1,8183°, фактически приложенную тягу до 0,510 Н при принятой массе 22 кг, но не имеет согласованной UTC-эпохи, модели J₂+сопротивление и подтверждённого двигателя 16U"
                     if size==2 else "для N>2 рассчитанных данных управления нет")
             self._clear_result(f"С управлением: для N={size}, внешней стороны {side:g}° проверенного решения нет; {reason}.")
             return
+        self.search_button.setEnabled(True)
         self.model_summary.setText("Каждый КА: собственная орбита; центральное поле + J₂ + атмосферное сопротивление; тяга отсутствует")
         if self._future is not None and not self._future.done():
             self.status.setText("Новый запрос ожидает завершения предыдущего; устаревший результат будет отброшен…")
             self._poll.start()
             return
         self._cancel_event=Event()
+        optimizing=self._pending_optimization
+        self._pending_optimization=False
+        self.cancel_button.setEnabled(optimizing)
         self._future=self._executor.submit(self._calculate_task,self._request_parameters(),
-                                           self._cancel_event)
+                                           self._cancel_event,optimizing,self.search_budget.value(),
+                                           lambda message,generation=self._generation:
+                                               self._progress.put((generation,message)))
         self._future_generation=self._generation
-        self.status.setText(f"N={size}, сторона {side:g}°: подбор и аудит всех пар выполняются в фоновом потоке…")
+        self.status.setText((f"N={size}, сторона {side:g}°: подбор выполняется в фоновом потоке…" if optimizing
+                             else f"N={size}, сторона {side:g}°: загружаю сохранённый расчёт…"))
         self._poll.start()
 
     def _collect_calculation(self):
+        try:
+            while True:
+                generation,message=self._progress.get_nowait()
+                if generation==self._generation:self.status.setText(message)
+        except Empty:pass
         if self._future is None or not self._future.done(): return
         future=self._future
         self._future=None
+        self.cancel_button.setEnabled(False)
         if self._future_generation!=self._generation:
             if self.mode.currentData()=="passive": self._start_calculation()
             else: self._poll.stop()

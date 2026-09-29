@@ -1,0 +1,398 @@
+{
+  "schema_version": 2,
+  "signature": "58da27c8984e0eca14d9",
+  "model_fingerprint_sha256": "4d65ecf280040bbd601647b3020e9d2d158b906d6207a956666b87aaec95d01a",
+  "config": {
+    "schema_version": 1,
+    "model_id": "passive-central-J2-exponential-drag-inverse-v2",
+    "epoch_utc": "2026-09-28T00:00:00Z",
+    "frame": "approximate mean-equator/equinox-of-date ECI; GMST from UTC≈UT1; no precession-nutation/polar motion transformation",
+    "orbit": {
+      "earth_radius_km": 6371.0,
+      "mu_km3_s2": 398600.4,
+      "j2": 0.00108262668,
+      "altitude_km": 700.0,
+      "inclination_deg": 97.8
+    },
+    "observer": {
+      "latitude_deg": 25.3026,
+      "longitude_deg": 51.5132,
+      "earth_rotation_rad_s": 7.292115e-05,
+      "greenwich_angle_at_zenith_deg": 6.785648977383971
+    },
+    "visibility": {
+      "min_elevation_deg": 15.0,
+      "max_side_error": 0.1,
+      "max_diagonal_error": 0.1,
+      "max_angle_error_deg": 10.0
+    },
+    "grid_tolerances": {
+      "min_neighbor_angle_deg": 2.0,
+      "max_outer_side_relative_error": 0.1,
+      "max_point_error_steps": 0.1,
+      "max_neighbor_step_error": 0.1,
+      "max_cell_side_error": 0.1,
+      "max_cell_diagonal_error": 0.1,
+      "max_cell_angle_error_deg": 10.0
+    },
+    "spacecraft": {
+      "form_factor": "16U illustrative",
+      "mass_kg": 22.0,
+      "body_dimensions_m": [
+        0.454,
+        0.2463,
+        0.2463
+      ],
+      "effective_area_m2": 0.1118202,
+      "drag_coefficient": 2.2,
+      "attitude": "fixed broadside normal to instantaneous atmosphere-relative velocity; idealized",
+      "collision_radius_sum_km": 0.02,
+      "additional_safety_margin_km": 1.0,
+      "mass_source_status": "22 kg from other 16U missions; unverified for this formation"
+    },
+    "atmosphere": {
+      "name": "single-scale-height exponential research approximation",
+      "reference_altitude_km": 700.0,
+      "rho_reference_kg_m3": 4.6e-13,
+      "scale_height_km": 97.0,
+      "documented_range_km": [
+        500.0,
+        1200.0
+      ],
+      "source": "NASA NTRS 19650024643, Table 10 near solar maximum; 700 km: 4.6e-16 g/cm3, H=97 km",
+      "space_weather": "fixed near-solar-maximum reference; no F10.7/Ap forecast"
+    },
+    "display": {
+      "start_s": -450.0,
+      "end_s": 450.0,
+      "step_s": 5.0,
+      "integration_step_s": 2.0
+    },
+    "search": {
+      "depth_factors": [
+        0.0,
+        0.02,
+        -0.02
+      ],
+      "range_rate_factors": [
+        0.0,
+        0.01,
+        0.02,
+        0.03
+      ],
+      "warp_factors": [
+        0.0
+      ],
+      "survey_step_s": 5.0,
+      "audit_step_s": 1.0,
+      "refinement_step_s": 0.1,
+      "minimum_altitude_km": 500.0,
+      "maximum_altitude_km": 1200.0,
+      "max_semimajor_axis_spread_km": 100.0,
+      "max_eccentricity": 0.03,
+      "max_inclination_spread_deg": 2.0,
+      "max_period_spread_s": 130.0,
+      "max_epoch_relative_speed_km_s": 0.35
+    },
+    "angular_side_deg": 20.0
+  },
+  "N": 2,
+  "budget_this_run": 20,
+  "survey_count_total": 20,
+  "candidate": {
+    "source": "ранее проверенный кандидат",
+    "initial_states_eci_km_km_s": [
+      [
+        [
+          3359.2554054701877,
+          5438.853628202488,
+          3022.137543495983
+        ],
+        [
+          -0.7082238754936598,
+          -3.291505796026455,
+          6.710853768601841
+        ]
+      ],
+      [
+        [
+          3333.415870667927,
+          5324.660700095788,
+          3246.7783906096847
+        ],
+        [
+          -0.8661604888186466,
+          -3.537207221232631,
+          6.548813926960856
+        ]
+      ],
+      [
+        [
+          3554.8182420796015,
+          5206.784148233709,
+          3212.225282208214
+        ],
+        [
+          -0.8605005901632736,
+          -3.535949521823342,
+          6.527602545691595
+        ]
+      ],
+      [
+        [
+          3582.6922096796447,
+          5320.800876569762,
+          2987.8158245653003
+        ],
+        [
+          -0.7105996249166325,
+          -3.2876032970950733,
+          6.688934269188789
+        ]
+      ]
+    ],
+    "elements_at_epoch": [
+      {
+        "a_km": 7070.999999999996,
+        "e": 1.6653345369377348e-16,
+        "inclination_deg": 97.8,
+        "raan_deg": 62.011873527717235,
+        "arg_perigee_deg": 0.0,
+        "true_anomaly_deg": 25.555816831490212
+      },
+      {
+        "a_km": 7044.1180096488915,
+        "e": 0.009493549143869944,
+        "inclination_deg": 97.78681823337085,
+        "raan_deg": 62.004915649081674,
+        "arg_perigee_deg": 142.2161771156888,
+        "true_anomaly_deg": 245.39137522107202
+      },
+      {
+        "a_km": 7015.859122530986,
+        "e": 0.01275915952533704,
+        "inclination_deg": 98.7996185210369,
+        "raan_deg": 60.20131755662576,
+        "arg_perigee_deg": 159.8512934786442,
+        "true_anomaly_deg": 227.49621546564225
+      },
+      {
+        "a_km": 7042.018175633987,
+        "e": 0.00496714631711846,
+        "inclination_deg": 98.68217953721641,
+        "raan_deg": 60.12488362964108,
+        "arg_perigee_deg": 193.67099295384898,
+        "true_anomaly_deg": 191.61422389796724
+      }
+    ],
+    "target_gnomonic": [
+      [
+        0.0,
+        0.0
+      ],
+      [
+        0.36397023426620234,
+        0.0
+      ],
+      [
+        0.36397023426620234,
+        0.36397023426620234
+      ],
+      [
+        0.0,
+        0.36397023426620234
+      ]
+    ],
+    "grid_indices": [
+      [
+        0,
+        1
+      ],
+      [
+        3,
+        2
+      ]
+    ]
+  },
+  "verification": {
+    "one_pass": {
+      "sample_step_s": 1.0,
+      "square_intervals": [
+        {
+          "start_s": -55.0,
+          "end_s": 25.0,
+          "duration_s": 80.0,
+          "min_outer_side_deg": 18.153643338872083,
+          "max_outer_side_deg": 20.462538769177524,
+          "min_true_neighbor_deg": 16.843655040533644,
+          "max_shape_errors": [
+            0.09972178782822497,
+            0.07600599013060609,
+            0.15839403906862448
+          ],
+          "max_point_error_steps": 0.07052372290190573,
+          "max_step_error": 0.09972178782822497
+        }
+      ],
+      "resolved_intervals_2deg": [
+        {
+          "start_s": -55.0,
+          "end_s": 25.0,
+          "duration_s": 80.0,
+          "min_outer_side_deg": 18.153643338872083,
+          "max_outer_side_deg": 20.462538769177524,
+          "min_true_neighbor_deg": 16.843655040533644,
+          "max_shape_errors": [
+            0.09972178782822497,
+            0.07600599013060609,
+            0.15839403906862448
+          ],
+          "max_point_error_steps": 0.07052372290190573,
+          "max_step_error": 0.09972178782822497
+        }
+      ],
+      "best_square_duration_s": 80.0,
+      "best_resolution_2deg_s": 80.0,
+      "best_square_duration_display_s": 80.0,
+      "best_resolution_2deg_display_s": 80.0,
+      "minimum_pair_sample_km": 222.0337508325193,
+      "outer_size_at_epoch_deg": 20.00000000000011,
+      "initial_target_max_error_gnomonic": 3.447874634866051e-15,
+      "centroid_to_chief_direction_angle_deg": 14.41121622582648,
+      "minimum_true_neighbor_at_epoch_deg": 18.88172123090683,
+      "best_interval_metrics": {
+        "outer_side_range_deg": [
+          18.153643338872083,
+          20.462538769177524
+        ],
+        "minimum_elevation_deg": 53.04242576501423,
+        "minimum_true_neighbor_deg": 16.843655040533644,
+        "max_shape_errors": [
+          0.09972178782822497,
+          0.07600599013060609,
+          0.15839403906862448
+        ],
+        "max_point_error_steps": 0.07052372290190573,
+        "spatial_neighbor_side_range_km": [
+          252.36820480898265,
+          255.02787952582932
+        ]
+      }
+    },
+    "full_orbit": {
+      "period_s": 5917.418145512146,
+      "pair_count": 6,
+      "closest_pair": {
+        "pair": "1-2",
+        "t_s": 1469.5839148001014,
+        "utc": "2026-09-28T00:24:29.583915Z",
+        "distance_km": 37.630000138655966,
+        "latitude_deg": 60.94429930411579,
+        "longitude_deg": -116.57311999285143,
+        "method": "повторное интегрирование J₂+сопротивление"
+      },
+      "dangerous_event_count": 0,
+      "all_pair_minima": {
+        "0-1": {
+          "pair": "0-1",
+          "t_s": 106.65350333787501,
+          "utc": "2026-09-28T00:01:46.653503Z",
+          "distance_km": 252.41485020609716,
+          "latitude_deg": 32.721976712920316,
+          "longitude_deg": 49.73209103012479,
+          "method": "Эрмит между узлами"
+        },
+        "0-2": {
+          "pair": "0-2",
+          "t_s": 767.9151906725019,
+          "utc": "2026-09-28T00:12:47.915191Z",
+          "distance_km": 334.53575059343575,
+          "latitude_deg": 71.35884177981507,
+          "longitude_deg": 25.531612360138467,
+          "method": "Эрмит между узлами"
+        },
+        "0-3": {
+          "pair": "0-3",
+          "t_s": 1449.9505248386413,
+          "utc": "2026-09-28T00:24:09.950525Z",
+          "distance_km": 38.19118582431083,
+          "latitude_deg": 65.04599281488049,
+          "longitude_deg": -113.59833170945498,
+          "method": "Эрмит между узлами"
+        },
+        "1-2": {
+          "pair": "1-2",
+          "t_s": 1469.5839148001014,
+          "utc": "2026-09-28T00:24:29.583915Z",
+          "distance_km": 37.630000138655966,
+          "latitude_deg": 60.94429930411579,
+          "longitude_deg": -116.57311999285143,
+          "method": "повторное интегрирование J₂+сопротивление"
+        },
+        "1-3": {
+          "pair": "1-3",
+          "t_s": 4851.048003481701,
+          "utc": "2026-09-28T01:20:51.048003Z",
+          "distance_km": 305.9006176133028,
+          "latitude_deg": -35.537134692367644,
+          "longitude_deg": 40.03785620042868,
+          "method": "Эрмит между узлами"
+        },
+        "2-3": {
+          "pair": "2-3",
+          "t_s": 95.98044180311263,
+          "utc": "2026-09-28T00:01:35.980442Z",
+          "distance_km": 252.5427024261362,
+          "latitude_deg": 31.714844080513725,
+          "longitude_deg": 47.52273322958345,
+          "method": "Эрмит между узлами"
+        }
+      },
+      "altitude_range_km": [
+        557.5069564324558,
+        737.3364401047302
+      ],
+      "max_abs_chief_latitude_deg": 82.19171229449748,
+      "threshold_km": 1.02
+    },
+    "orbit_limits": {
+      "a_range_km": [
+        7015.859122530986,
+        7070.999999999996
+      ],
+      "e_range": [
+        1.6653345369377348e-16,
+        0.01275915952533704
+      ],
+      "i_range_deg": [
+        97.78681823337085,
+        98.7996185210369
+      ],
+      "perigee_altitude_range_km": [
+        555.3426567793222,
+        699.9999999999945
+      ],
+      "apogee_altitude_range_km": [
+        699.9999999999982,
+        739.9916901487122
+      ],
+      "period_spread_s": 69.08245229254135,
+      "max_epoch_relative_speed_km_s": 0.34135310692907916
+    },
+    "physical_violations": [],
+    "step_1_vs_half_max_position_km": 4.9536161409000564e-11,
+    "elements_roundtrip_max_error": 3.637978807091713e-12
+  },
+  "included_forces": [
+    "центральное поле",
+    "J₂",
+    "атмосферное сопротивление"
+  ],
+  "motor_acceleration_applied": false,
+  "status": "проверен один пролёт и полный виток",
+  "limitations": [
+    "ограниченный поиск без гарантии глобального оптимума",
+    "приближённая плотность, без прогноза космической погоды",
+    "многосуточная повторяемость не проверена"
+  ]
+}

@@ -18,9 +18,11 @@ ROOT=Path(__file__).resolve().parent.parent/"orbit_study"/"drag_demo"
 
 def load_or_search(size,side_deg,neighbor_deg,latitude_deg=25.3026,
                    longitude_deg=51.5132,min_elevation_deg=15.,
-                   altitude_km=700.,inclination_deg=97.8,budget=12,cancel_event=None):
+                   altitude_km=700.,inclination_deg=97.8,budget=12,cancel_event=None,
+                   epoch_utc=None,allow_search=True):
     base=json.loads((ROOT/"config.json").read_text(encoding="utf-8"))
     cfg=deepcopy(base)
+    if epoch_utc is not None:cfg["epoch_utc"]=str(epoch_utc)
     cfg["observer"].update(latitude_deg=float(latitude_deg),
                            longitude_deg=float(longitude_deg))
     cfg["visibility"]["min_elevation_deg"]=float(min_elevation_deg)
@@ -29,6 +31,29 @@ def load_or_search(size,side_deg,neighbor_deg,latitude_deg=25.3026,
     cfg["grid_tolerances"]["min_neighbor_angle_deg"]=float(neighbor_deg)
     cfg=prepare_config(cfg)
     cfg["angular_side_deg"]=float(side_deg)
+    from orbit_study.passive_optimizer import load_cached
+    cached=load_cached(cfg,size)
+    if cached is not None:
+        cfg,candidate,data,path=cached
+        checked=data["verification"];full=checked["full_orbit"];one=checked["one_pass"]
+        violations=list(checked["physical_violations"])
+        projection=[] if one["best_square_duration_display_s"]>0 else ["нет связного интервала наблюдаемого квадрата"]
+        instrument=[] if one["best_resolution_2deg_display_s"]>0 else ["при исследовательском пороге разрешения 2° нет интервала"]
+        audit={"closest_pair":full["closest_pair"],"pair_count":full["pair_count"],
+            "threshold_km":full["threshold_km"],"horizon_s":[0.,full["period_s"]],
+            "one_pass_horizon_s":[cfg["display"]["start_s"],cfg["display"]["end_s"]],
+            "one_pass_closest_pair":{"distance_km":one["minimum_pair_sample_km"],"method":"узлы 1 с"},
+            "dangerous_events_count":full["dangerous_event_count"],
+            "saved_duration_s":one["best_square_duration_display_s"],
+            "instrument_duration_2deg_s":one["best_resolution_2deg_display_s"],
+            "minimum_altitude_km":full["altitude_range_km"][0],
+            "maximum_altitude_km":full["altitude_range_km"][1],
+            "orbit_closeness":checked["orbit_limits"],"full_orbit_ok":not violations,
+            "full_orbit_violations":violations,"projection_violations":projection,
+            "instrument_violations":instrument,
+            "violations":violations+projection+instrument,
+            "verified_acceptable":not (violations or projection or instrument)}
+        return cfg,candidate,audit,f"подбор из {path}: один пролёт и полный виток проверены"
     case_path=ROOT/"results"/(f"n{size}/case.json" if size in (2,3) else "case.json")
     saved=json.loads(case_path.read_text(encoding="utf-8")) if case_path.exists() else None
     same=(saved is not None and saved.get("schema_version")==3
@@ -67,6 +92,8 @@ def load_or_search(size,side_deg,neighbor_deg,latitude_deg=25.3026,
         cfg["angular_side_deg"]=float(side_deg)
         return cfg,candidate,audit,("сохранённый кандидат: проверены один пролёт и полный виток" if saved["verified_acceptable"]
                                     else "сохранённая исследовательская попытка; подходящий пассивный вариант не найден")
+    if not allow_search:
+        raise FileNotFoundError("Для выбранных параметров сохранённого расчёта нет. Нажмите «Подобрать орбиты». Старые траектории не используются.")
     cfg,candidate,preview,_=search(cfg,size,side_deg,budget,cancel_event)
     if cancel_event is not None and cancel_event.is_set():
         raise ValueError("Расчёт отменён после изменения параметров")
