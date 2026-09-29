@@ -1,0 +1,180 @@
+{
+  "schema_version": 1,
+  "host": "Linux (доступная рабочая среда; не измерение Mac)",
+  "before": {
+    "case": "/home/irshim/Рабочий стол/square_projection_demo_starter/orbit_study/drag_demo/results/case_unconstrained_legacy.json",
+    "N": 10,
+    "side_deg": 20.0,
+    "a_km": [
+      7052.24008856682,
+      9028.080274218175
+    ],
+    "e": [
+      1.2412670766236366e-16,
+      0.23133647017363274
+    ],
+    "i_deg": [
+      97.79625774451202,
+      103.12096030981878
+    ],
+    "perigee_altitude_km": [
+      568.556051136341,
+      700.0
+    ],
+    "apogee_altitude_km": [
+      700.0000000000027,
+      4745.60449730001
+    ],
+    "period_spread_s": 2643.0924768854193,
+    "epoch_centroid_relative_speed_km_s": [
+      0.02724978943972124,
+      0.9138820494008052
+    ],
+    "centroid_radius_over_display_km": [
+      15.47693448430542,
+      527.5919087170709
+    ],
+    "expected_min_true_neighbor_deg": 1.9715103220366024,
+    "one_pass_duration_2deg_s": 30.0,
+    "one_pass_minimum_pair_km": 2.458856034340872,
+    "full_orbit_minimum_pair_km": null,
+    "verified_acceptable": false
+  },
+  "after": {
+    "2": {
+      "case": "/home/irshim/Рабочий стол/square_projection_demo_starter/orbit_study/drag_demo/results/n2/case.json",
+      "N": 2,
+      "side_deg": 20.0,
+      "a_km": [
+        7015.859122530989,
+        7071.000000000001
+      ],
+      "e": [
+        1.2412670766236366e-16,
+        0.012759159525336666
+      ],
+      "i_deg": [
+        97.78681823337085,
+        98.7996185210369
+      ],
+      "perigee_altitude_km": [
+        555.3426567793276,
+        700.0
+      ],
+      "apogee_altitude_km": [
+        700.0000000000027,
+        739.9916901487159
+      ],
+      "period_spread_s": 69.08245229254226,
+      "epoch_centroid_relative_speed_km_s": [
+        0.1623760503148414,
+        0.17120664529696258
+      ],
+      "centroid_radius_over_display_km": [
+        170.8089713689395,
+        181.49362403091376
+      ],
+      "expected_min_true_neighbor_deg": 18.88172123090683,
+      "one_pass_duration_2deg_s": 80.0,
+      "one_pass_minimum_pair_km": 222.03375083251998,
+      "full_orbit_minimum_pair_km": 37.6300001386482,
+      "verified_acceptable": true
+    },
+    "3": {
+      "case": "/home/irshim/Рабочий стол/square_projection_demo_starter/orbit_study/drag_demo/results/n3/case.json",
+      "N": 3,
+      "side_deg": 20.0,
+      "a_km": [
+        6985.48784478571,
+        7071.000000000001
+      ],
+      "e": [
+        1.2412670766236366e-16,
+        0.00944830876144077
+      ],
+      "i_deg": [
+        97.8,
+        98.71535660146209
+      ],
+      "perigee_altitude_km": [
+        548.486798778883,
+        700.0
+      ],
+      "apogee_altitude_km": [
+        680.488890792537,
+        700.0000000000027
+      ],
+      "period_spread_s": 107.01702108799327,
+      "epoch_centroid_relative_speed_km_s": [
+        0.0009017585374669087,
+        0.1334602635443766
+      ],
+      "centroid_radius_over_display_km": [
+        1.143520646642868,
+        176.55703819308562
+      ],
+      "expected_min_true_neighbor_deg": 9.177438021942809,
+      "one_pass_duration_2deg_s": 60.0,
+      "one_pass_minimum_pair_km": 107.68128112016323,
+      "full_orbit_minimum_pair_km": 25.034892551500363,
+      "verified_acceptable": true
+    },
+    "10": {
+      "case": "/home/irshim/Рабочий стол/square_projection_demo_starter/orbit_study/drag_demo/results/case.json",
+      "N": 10,
+      "side_deg": 20.0,
+      "a_km": [
+        7071.000000000001,
+        7155.90659396651
+      ],
+      "e": [
+        1.2412670766236366e-16,
+        0.00955490580496265
+      ],
+      "i_deg": [
+        97.79135445907262,
+        98.81968285621761
+      ],
+      "perigee_altitude_km": [
+        693.8499002387989,
+        718.5286074847227
+      ],
+      "apogee_altitude_km": [
+        700.0000000000027,
+        853.2806074209711
+      ],
+      "period_spread_s": 106.90137210933881,
+      "epoch_centroid_relative_speed_km_s": [
+        0.013969884544419667,
+        0.16468426653669335
+      ],
+      "centroid_radius_over_display_km": [
+        18.974797834968978,
+        190.00530591530037
+      ],
+      "expected_min_true_neighbor_deg": 1.9715103220366024,
+      "one_pass_duration_2deg_s": 0.0,
+      "one_pass_minimum_pair_km": 25.25491290808274,
+      "full_orbit_minimum_pair_km": 5.5464285911698115,
+      "verified_acceptable": false
+    }
+  },
+  "ui_timing_s": {
+    "before": {
+      "saved_startup": 3.172,
+      "frame_median": 0.449,
+      "changed_side_sync": 12.884
+    },
+    "after": {
+      "saved_startup": 4.456,
+      "frame_median_local": 0.11,
+      "frame_median_eci_close": 0.113,
+      "frame_median_eci_earth": 0.116,
+      "changed_side_event": 0.09,
+      "changed_case_background_search_and_audit": 38.968,
+      "event_processing_max_during_background_search_s": 0.0368,
+      "stale_request_discard_and_saved_reload_s": 4.03
+    }
+  },
+  "note": "После изменения поля старые траектории снимаются сразу; подбор и аудит идут в фоне. Время полного нового расчёта зависит от N и бюджета."
+}

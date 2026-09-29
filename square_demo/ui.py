@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import json
+from concurrent.futures import ThreadPoolExecutor
+from threading import Event
 from pathlib import Path
 
 import numpy as np
@@ -17,6 +19,7 @@ from PySide6.QtWidgets import (QApplication, QComboBox, QDoubleSpinBox, QFileDia
 
 from .drag_provider import calculate_drag_case
 from .drag_study import load_or_search
+from .grid import expected_neighbor_angle_deg
 from .long_report import create_long_report
 
 
@@ -28,6 +31,21 @@ class Plot(FigureCanvasQTAgg):
             self.figure.subplots_adjust(left=.02,right=.98,bottom=.03,top=.92)
         super().__init__(self.figure)
         self.setMinimumWidth(300)
+        self._animated_artists=[]
+        self._background=None
+        if projection!="3d": self.mpl_connect("draw_event",self._save_background)
+
+    def _save_background(self,event):
+        self._background=self.copy_from_bbox(self.axes.bbox)
+        if self._animated_artists:
+            QTimer.singleShot(0,self.fast_draw)
+
+    def fast_draw(self):
+        if self._background is None: return
+        self.restore_region(self._background)
+        for artist in self._animated_artists:
+            self.axes.draw_artist(artist)
+        self.blit(self.axes.bbox)
 
 
 class ObservableTimeline(QWidget):
@@ -76,6 +94,19 @@ class DemoWindow(QMainWindow):
         self.study_record=None
         self.study_data=None
         self.window_model_valid=False
+        self._grid_artists={}
+        self._space_artists=None
+        self._executor=ThreadPoolExecutor(max_workers=1,thread_name_prefix="orbit-search")
+        self._future=None
+        self._cancel_event=None
+        self._generation=0
+        self._debounce=QTimer(self)
+        self._debounce.setSingleShot(True)
+        self._debounce.setInterval(350)
+        self._debounce.timeout.connect(self._start_calculation)
+        self._poll=QTimer(self)
+        self._poll.setInterval(80)
+        self._poll.timeout.connect(self._collect_calculation)
         self.timer=QTimer(self)
         self.timer.setInterval(110)
         self.timer.timeout.connect(self.advance)
@@ -110,11 +141,8 @@ class DemoWindow(QMainWindow):
         self.angular_side.setValue(20)
         self.angular_side.setSuffix(" °")
         cf.addRow("Внешняя сторона (цель)",self.angular_side)
-        self.resolution=QComboBox()
-        self.resolution.addItem("1°",1.)
-        self.resolution.addItem("2°",2.)
-        self.resolution.setCurrentIndex(1)
-        cf.addRow("Истинный угол соседей ≥",self.resolution)
+        self.expected_step=QLabel()
+        cf.addRow("Ожидаемый шаг соседей",self.expected_step)
         groups.addWidget(config,2)
         observer=QGroupBox("Наблюдатель")
         of=QFormLayout(observer)
@@ -150,10 +178,10 @@ class DemoWindow(QMainWindow):
         self.model_details.setVisible(False)
         self.model_button.toggled.connect(self.model_details.setVisible)
         ml.addWidget(self.model_details)
+        self.model_details.setText("Научный порог истинного угла соседей: 2°.")
         groups.addWidget(model,2)
         self.grid_size.valueChanged.connect(self.calculate_current)
         self.angular_side.valueChanged.connect(self.calculate_current)
-        self.resolution.currentIndexChanged.connect(self.calculate_current)
         self.mode.currentIndexChanged.connect(self.calculate_current)
         for widget in (self.observer_lat,self.observer_lon,self.elevation_limit,
                        self.orbit_height,self.orbit_inclination):
@@ -250,6 +278,8 @@ class DemoWindow(QMainWindow):
         self.study_record=None
         self.study_data=None
         self.window_model_valid=False
+        self._grid_artists={}
+        self._space_artists=None
         self.timeline.set_result(None,None)
         self.status.setText(message)
         self.status.setStyleSheet("background:#ffe3df;color:#8b241d;padding:5px;")
@@ -270,6 +300,8 @@ class DemoWindow(QMainWindow):
         self.model_details.clear()
         self.long_status.setText("Долгосрочный отчёт недоступен без выбранного расчёта.")
         for canvas in (self.proj,self.yoz,self.space):
+            canvas._animated_artists=[]
+            canvas._background=None
             canvas.axes.clear()
             canvas.axes.set_axis_off()
             if canvas is self.space:
@@ -281,6 +313,30 @@ class DemoWindow(QMainWindow):
             canvas.draw_idle()
 
     def calculate_current(self,*_):
+        self._generation+=1
+        if self._cancel_event is not None: self._cancel_event.set()
+        self.expected_step.setText(f"{expected_neighbor_angle_deg(self.grid_size.value(),self.angular_side.value()):.3f}°; порог 2° в модели")
+        self._debounce.stop()
+        self._clear_result("Параметры изменены. Выполняется подбор и проверка орбит…")
+        if self.mode.currentData()=="controlled":
+            self._start_calculation()
+        else:
+            self._debounce.start()
+
+    def _request_parameters(self):
+        return (self.grid_size.value(),self.angular_side.value(),2.,
+                self.observer_lat.value(),self.observer_lon.value(),
+                self.elevation_limit.value(),self.orbit_height.value(),
+                self.orbit_inclination.value())
+
+    @staticmethod
+    def _calculate_task(parameters,cancel_event):
+        scenario,candidate,audit,source=load_or_search(*parameters,cancel_event=cancel_event)
+        if cancel_event.is_set(): raise ValueError("Расчёт отменён")
+        result=calculate_drag_case(scenario,candidate)
+        return scenario,candidate,audit,source,result
+
+    def _start_calculation(self):
         size=self.grid_size.value()
         side=self.angular_side.value()
         if self.mode.currentData()=="controlled":
@@ -290,23 +346,42 @@ class DemoWindow(QMainWindow):
             self._clear_result(f"С управлением: для N={size}, внешней стороны {side:g}° проверенного решения нет; {reason}.")
             return
         self.model_summary.setText("Каждый КА: собственная орбита; центральное поле + J₂ + атмосферное сопротивление; тяга отсутствует")
+        if self._future is not None and not self._future.done():
+            self.status.setText("Новый запрос ожидает завершения предыдущего; устаревший результат будет отброшен…")
+            self._poll.start()
+            return
+        self._cancel_event=Event()
+        self._future=self._executor.submit(self._calculate_task,self._request_parameters(),
+                                           self._cancel_event)
+        self._future_generation=self._generation
+        self.status.setText(f"N={size}, сторона {side:g}°: подбор и аудит всех пар выполняются в фоновом потоке…")
+        self._poll.start()
+
+    def _collect_calculation(self):
+        if self._future is None or not self._future.done(): return
+        future=self._future
+        self._future=None
+        if self._future_generation!=self._generation:
+            if self.mode.currentData()=="passive": self._start_calculation()
+            else: self._poll.stop()
+            return
+        self._poll.stop()
         try:
-            scenario,candidate,audit,source=load_or_search(size,side,
-                float(self.resolution.currentData()),self.observer_lat.value(),
-                self.observer_lon.value(),self.elevation_limit.value(),
-                self.orbit_height.value(),self.orbit_inclination.value())
-            result=calculate_drag_case(scenario,candidate)
-            if ("saved_duration_s" in audit and self.resolution.currentData()==2.
+            scenario,candidate,audit,source,result=future.result()
+            if ("saved_duration_s" in audit
                     and abs(result.metadata["quality"]["longest_contiguous_duration_s"]
                             -audit["saved_duration_s"])>1e-8):
                 raise ValueError("Повторный пролёт не совпадает с сохранённой проверкой")
-        except (ValueError,OSError,KeyError) as exc:
+        except Exception as exc:
             self._clear_result(str(exc))
             return
+        size=self.grid_size.value(); side=self.angular_side.value()
         self.timer.stop()
         self.play_button.setText("Пуск")
         self.scenario,self.study_record,self.study_data=scenario,audit,candidate
         self.result=result
+        self._grid_artists={}
+        self._space_artists=None
         self.time_slider.setEnabled(True)
         self.play_button.setEnabled(True)
         self.elements_button.setEnabled(True)
@@ -318,15 +393,18 @@ class DemoWindow(QMainWindow):
         density_range=scenario["atmosphere"]["documented_range_km"]
         model_valid=(audit["minimum_altitude_km"]>=density_range[0] and
                      audit["maximum_altitude_km"]<=density_range[1])
-        self.window_model_valid=model_valid
-        accepted=duration>0 and safe and model_valid
+        self.window_model_valid=bool(model_valid and audit["verified_acceptable"])
+        self.window_valid_reason=("; ".join(audit["violations"]) if audit["violations"] else
+            "модель плотности выходит за область применимости на проверенном витке")
+        accepted=duration>0 and safe and model_valid and audit["verified_acceptable"]
         state="выполнены частично: один пролёт" if accepted else "проверенного подходящего интервала нет"
         problems=[]
         if duration<=0: problems.append("не выполнены видимость, форма или шаг всей сетки")
         if not safe: problems.append("порог сближения нарушен")
         if not model_valid: problems.append(f"высота {audit['minimum_altitude_km']:.0f}…{audit['maximum_altitude_km']:.0f} км выходит за область плотности {density_range[0]:g}…{density_range[1]:g} км")
+        problems.extend(audit["violations"])
         problem_text=(" Нарушения: "+"; ".join(problems)+"." if problems else "")
-        self.status.setText(f"N={size}, внешняя сторона {side:g}°: {state}; {source}. Подходящий геометрический интервал {duration:g} с; минимум всех {audit['pair_count']} пар {audit['closest_pair']['distance_km']:.3f} км.{problem_text} Многосуточная повторяемость не проверена.")
+        self.status.setText(f"N={size}, внешняя сторона {side:g}°: {state}; {source}. Подходящий геометрический интервал {duration:g} с; минимум всех {audit['pair_count']} пар за полный виток {audit['closest_pair']['distance_km']:.3f} км.{problem_text} Многосуточная повторяемость не проверена.")
         self.status.setStyleSheet("background:#fff0d9;color:#805015;padding:5px;" if accepted else "background:#ffe3df;color:#8b241d;padding:5px;")
         observer=scenario["observer"]
         orbit=scenario["orbit"]
@@ -416,7 +494,7 @@ class DemoWindow(QMainWindow):
         interval=(f"{longest[0]:g}…{longest[1]:g} с ({quality['longest_contiguous_duration_s']:.0f} с)" if quality["has_positive_duration_interval"] else "отсутствует")
         visible=obs["visibility_intervals_s"]
         vis_text=", ".join(f"{a:g}…{b:g} с" for a,b in visible) or "нет"
-        reason=obs['reasons'][k] if self.window_model_valid else "модель плотности выходит за область применимости на проверяемом окне"
+        reason=obs['reasons'][k] if self.window_model_valid else self.window_valid_reason
         self.observable_badge.setText(f"{'● Вся сетка приемлема сейчас' if good else '● Сетка сейчас неприемлема: '+reason}. Видимость всех КА: {vis_text}. Геометрический интервал пролёта: {interval}.")
         self.observable_badge.setStyleSheet("background:#d9f4e3;color:#145b32;padding:5px;" if good else "background:#ffe3df;color:#8b241d;padding:5px;")
         audit=self.study_record
@@ -426,7 +504,7 @@ class DemoWindow(QMainWindow):
         self.safety_badge.setStyleSheet("background:#e7edf8;color:#1c3764;padding:5px;" if closest["distance_km"]>=threshold else "background:#fff0d9;color:#805015;padding:5px;")
         gm=r.metadata["grid_metrics"]
         errors=r.shape_errors[k]
-        self.metrics.setText(f"Внешняя сторона: {obs['outer_side_deg'][k]:.3f}° (цель {self.angular_side.value():g}°); min истинный угол соседей: {gm['min_true_neighbor_angle_deg'][k]:.3f}°; min угол места: {obs['min_elevation_deg'][k]:.2f}°. Ошибки формы: εb={errors[0]:.3f}, εd={errors[1]:.3f}, εγ={np.rad2deg(errors[2]):.2f}°; отклонение узлов {gm['point_error_steps'][k]:.3f} шага, неравномерность {gm['neighbor_step_error'][k]:.3f}.")
+        self.metrics.setText(f"Внешняя сторона: {obs['outer_side_deg'][k]:.3f}° (цель {self.angular_side.value():g}°); ожидаемый истинный шаг: {expected_neighbor_angle_deg(self.grid_size.value(),self.angular_side.value()):.3f}°, фактический минимум: {gm['min_true_neighbor_angle_deg'][k]:.3f}°; научный порог 2°. Min угол места: {obs['min_elevation_deg'][k]:.2f}°. Ошибки формы: εb={errors[0]:.3f}, εd={errors[1]:.3f}, εγ={np.rad2deg(errors[2]):.2f}°; отклонение узлов {gm['point_error_steps'][k]:.3f} шага, неравномерность {gm['neighbor_step_error'][k]:.3f}.")
         sp=r.metadata["spatial_size_metrics"]
         corners=", ".join(f"{x:.2f}" for x in sp["corner_sides_km"][k])
         diagonals=", ".join(f"{x:.2f}" for x in sp["corner_diagonals_km"][k])
@@ -435,34 +513,47 @@ class DemoWindow(QMainWindow):
 
     def _draw_grid(self,canvas,points,target,all_points,title,xlabel,ylabel):
         ax=canvas.axes
-        ax.clear()
-        ax.set_axis_on()
         ids=np.asarray(self.result.metadata["grid_indices"])
         size=len(ids)
-        colors=plt.get_cmap("viridis",size)
-        for row in range(size):
-            ax.plot(*target[ids[row]].T,"--",color="#a7a7a7",linewidth=.7,alpha=.7)
-            ax.plot(*points[ids[row]].T,color="#165f84",linewidth=1.1,alpha=.85)
-        for col in range(size):
-            ax.plot(*target[ids[:,col]].T,"--",color="#a7a7a7",linewidth=.7,alpha=.7)
-            ax.plot(*points[ids[:,col]].T,color="#bd6a24",linewidth=1.1,alpha=.85)
-        rgba=np.empty((size*size,4))
-        for row in range(size): rgba[ids[row]]=colors(row)
-        ax.scatter(points[:,0],points[:,1],c=rgba,s=19,zorder=3)
-        for j in self.result.metadata["corner_indices"]:
-            if np.isfinite(points[j]).all():
-                ax.annotate(str(j),points[j],xytext=(4,4),textcoords="offset points",fontsize=8)
-        finite=all_points[np.isfinite(all_points).all(axis=1)]
-        combined=np.vstack((target,finite)) if len(finite) else target
-        low,high=np.min(combined,axis=0),np.max(combined,axis=0)
-        center=(low+high)/2
-        radius=max(float(np.max(high-low))*.56,.5 if "atan" in xlabel else 1.)
-        ax.set_xlim(center[0]-radius,center[0]+radius)
-        ax.set_ylim(center[1]-radius,center[1]+radius)
-        ax.set_aspect("equal",adjustable="box")
-        ax.set(title=title,xlabel=xlabel,ylabel=ylabel)
-        ax.grid(alpha=.3)
-        canvas.draw_idle()
+        cache=self._grid_artists.get(canvas)
+        if cache is None:
+            ax.clear(); ax.set_axis_on()
+            colors=plt.get_cmap("viridis",size)
+            row_lines=[]; col_lines=[]
+            for row in range(size):
+                ax.plot(*target[ids[row]].T,"--",color="#a7a7a7",linewidth=.7,alpha=.7)
+                row_lines.append(ax.plot([],[],color="#165f84",linewidth=1.1,alpha=.85)[0])
+            for col in range(size):
+                ax.plot(*target[ids[:,col]].T,"--",color="#a7a7a7",linewidth=.7,alpha=.7)
+                col_lines.append(ax.plot([],[],color="#bd6a24",linewidth=1.1,alpha=.85)[0])
+            rgba=np.empty((size*size,4))
+            for row in range(size): rgba[ids[row]]=colors(row)
+            scatter=ax.scatter(points[:,0],points[:,1],c=rgba,s=19,zorder=3)
+            labels={j:ax.annotate(str(j),(0,0),xytext=(4,4),
+                textcoords="offset points",fontsize=8) for j in self.result.metadata["corner_indices"]}
+            finite=all_points[np.isfinite(all_points).all(axis=1)]
+            combined=np.vstack((target,finite)) if len(finite) else target
+            low,high=np.min(combined,axis=0),np.max(combined,axis=0)
+            center=(low+high)/2
+            radius=max(float(np.max(high-low))*.56,.5 if "atan" in xlabel else 1.)
+            ax.set_xlim(center[0]-radius,center[0]+radius)
+            ax.set_ylim(center[1]-radius,center[1]+radius)
+            ax.set_aspect("equal",adjustable="box")
+            ax.set(title=title,xlabel=xlabel,ylabel=ylabel)
+            ax.grid(alpha=.3)
+            cache=(row_lines,col_lines,scatter,labels)
+            self._grid_artists[canvas]=cache
+            canvas._animated_artists=[*row_lines,*col_lines,scatter,*labels.values()]
+            for artist in canvas._animated_artists: artist.set_animated(True)
+            canvas.draw()
+        row_lines,col_lines,scatter,labels=cache
+        for row,line in enumerate(row_lines): line.set_data(*points[ids[row]].T)
+        for col,line in enumerate(col_lines): line.set_data(*points[ids[:,col]].T)
+        scatter.set_offsets(points)
+        for j,label in labels.items():
+            label.xy=points[j]
+            label.set_visible(bool(np.isfinite(points[j]).all()))
+        canvas.fast_draw()
 
     def _draw_projection(self,k):
         r=self.result
@@ -480,9 +571,13 @@ class DemoWindow(QMainWindow):
     def _draw_space(self,k):
         r=self.result
         ax=self.space.axes
-        ax.clear()
-        ax.set_axis_on()
         mode=self.view.currentData()
+        if self._space_artists is None or self._space_artists["mode"]!=mode:
+            ax.clear(); ax.set_axis_on()
+            self._space_artists={"mode":mode}
+            rebuild=True
+        else:
+            rebuild=False
         if mode=="local":
             xyz=r.rho_oso_km
             low=np.min(xyz,axis=(0,1)); high=np.max(xyz,axis=(0,1))
@@ -490,7 +585,7 @@ class DemoWindow(QMainWindow):
             radius=max(1.,float(np.max(high-low))*.575)
             bounds=[(c-radius,c+radius) for c in center]
             labels=("x, км","y, км","z, км")
-            ax.set_title("Локальная система: центр группы")
+            if rebuild: ax.set_title("Локальная система: центр группы")
         else:
             xyz=r.r_eci_km
             labels=("X ECI, км","Y ECI, км","Z ECI, км")
@@ -498,34 +593,45 @@ class DemoWindow(QMainWindow):
                 center=xyz[k,0]
                 radius=max(20.,float(np.max(np.linalg.norm(xyz-xyz[:,0:1],axis=2)))*.75)
                 bounds=[(c-radius,c+radius) for c in center]
-                ax.set_title("ECI: приближение к КА 0")
+                if rebuild: ax.set_title("ECI: приближение к КА 0")
             else:
                 re=r.metadata["orbit_radius_km"]
                 u=np.linspace(0,2*np.pi,25); v=np.linspace(0,np.pi,13)
                 earth=np.array([re*np.outer(np.cos(u),np.sin(v)),
                     re*np.outer(np.sin(u),np.sin(v)),re*np.outer(np.ones_like(u),np.cos(v))])
-                ax.plot_surface(*earth,color="#9fc4e9",alpha=.38,linewidth=0)
-                ax.plot(*r.reference_orbit_eci_km.T,color="#888",linewidth=.9)
+                if rebuild:
+                    ax.plot_surface(*earth,color="#9fc4e9",alpha=.38,linewidth=0)
+                    ax.plot(*r.reference_orbit_eci_km.T,color="#888",linewidth=.9)
                 limit=re+r.metadata["reference_altitude_km"]+150
                 bounds=[(-limit,limit)]*3
-                ax.set_title("ECI: общий вид с Землёй")
+                if rebuild: ax.set_title("ECI: общий вид с Землёй")
         ids=np.asarray(r.metadata["grid_indices"])
         size=len(ids)
         corners=r.metadata["corner_indices"]
         selected=list(dict.fromkeys(corners+[int(ids[size//2,size//2])]))
-        for j in selected:
+        if rebuild:
+            self._space_artists["traces"]={j:ax.plot([],[],[],color="#165f84",linewidth=1.4)[0]
+                                           for j in selected}
+        for j,line in self._space_artists["traces"].items():
             start=max(0,k-40)
-            ax.plot(*xyz[start:k+1,j].T,color="#165f84",linewidth=1.4)
+            line.set_data_3d(*xyz[start:k+1,j].T)
         rows=np.empty(size*size,dtype=int)
         for row in range(size): rows[ids[row]]=row
-        ax.scatter(*xyz[k].T,c=rows,cmap="viridis",s=28 if mode=="local" else 18,depthshade=False)
-        for j in corners: ax.text(*xyz[k,j],f" {j}",fontsize=8)
+        if rebuild:
+            self._space_artists["scatter"]=ax.scatter(*xyz[k].T,c=rows,cmap="viridis",s=28 if mode=="local" else 18,depthshade=False)
+            self._space_artists["labels"]={j:ax.text(*xyz[k,j],f" {j}",fontsize=8) for j in corners}
+        self._space_artists["scatter"]._offsets3d=tuple(xyz[k].T)
+        for j,label in self._space_artists["labels"].items():
+            label.set_position((xyz[k,j,0],xyz[k,j,1]))
+            label.set_3d_properties(xyz[k,j,2])
         ax.set(xlim=bounds[0],ylim=bounds[1],zlim=bounds[2],
                xlabel=labels[0],ylabel=labels[1],zlabel=labels[2])
         ax.set_box_aspect((1,1,1))
         self.space.draw_idle()
 
     def closeEvent(self,event):
+        if self._cancel_event is not None: self._cancel_event.set()
+        self._executor.shutdown(wait=False,cancel_futures=True)
         super().closeEvent(event)
 
 

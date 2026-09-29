@@ -1,0 +1,612 @@
+[
+  {
+    "parameters": {
+      "side_deg": 20.0,
+      "depth_factor": 0.0,
+      "range_rate_factor": 0.0,
+      "warp_factor": 0.0,
+      "height_km": 700.0,
+      "inclination_deg": 97.8
+    },
+    "score": [
+      true,
+      50.0,
+      50.0,
+      3.7291156569281605,
+      -0.5894774578867311
+    ],
+    "best_duration_2deg_s": 50.0,
+    "minimum_altitude_km": 699.4298195937727,
+    "minimum_pair_sample_km": 113.11817091147827,
+    "orbit_limits": {
+      "a_range_km": [
+        7071.000000000001,
+        7098.61199938809
+      ],
+      "e_range": [
+        1.2412670766236366e-16,
+        0.002597389454318502
+      ],
+      "i_range_deg": [
+        97.8,
+        98.7518767471792
+      ],
+      "perigee_altitude_range_km": [
+        700.0,
+        709.1741394405808
+      ],
+      "apogee_altitude_range_km": [
+        700.0000000000027,
+        746.0498593355996
+      ],
+      "period_spread_s": 34.69477137611557,
+      "max_epoch_relative_speed_km_s": 0.27052756123860694
+    },
+    "full_orbit_sample": {
+      "sample_minimum_pair_km": 3.7291156569281605,
+      "minimum_altitude_km": 694.7989200964439,
+      "maximum_altitude_km": 746.4686018148868,
+      "period_s": 5917.418145512152
+    },
+    "violations": []
+  },
+  {
+    "parameters": {
+      "side_deg": 20.0,
+      "depth_factor": 0.0,
+      "range_rate_factor": 0.01,
+      "warp_factor": 0.0,
+      "height_km": 700.0,
+      "inclination_deg": 97.8
+    },
+    "score": [
+      true,
+      50.0,
+      50.0,
+      2.2289802075367753,
+      -0.5468781406498736
+    ],
+    "best_duration_2deg_s": 50.0,
+    "minimum_altitude_km": 693.5120976349199,
+    "minimum_pair_sample_km": 112.37479157092163,
+    "orbit_limits": {
+      "a_range_km": [
+        7067.4058916291515,
+        7074.030367462363
+      ],
+      "e_range": [
+        1.2412670766236366e-16,
+        0.0033730721699391144
+      ],
+      "i_range_deg": [
+        97.7955858487281,
+        98.76791002036771
+      ],
+      "perigee_altitude_range_km": [
+        675.6667402073263,
+        700.0
+      ],
+      "apogee_altitude_range_km": [
+        700.0000000000027,
+        723.6646987287877
+      ],
+      "period_spread_s": 8.315445868761344,
+      "max_epoch_relative_speed_km_s": 0.29372121028987097
+    },
+    "full_orbit_sample": {
+      "sample_minimum_pair_km": 2.2289802075367753,
+      "minimum_altitude_km": 677.0968023387522,
+      "maximum_altitude_km": 720.5860610510272,
+      "period_s": 5917.418145512152
+    },
+    "violations": []
+  },
+  {
+    "parameters": {
+      "side_deg": 20.0,
+      "depth_factor": 0.0,
+      "range_rate_factor": 0.02,
+      "warp_factor": 0.0,
+      "height_km": 700.0,
+      "inclination_deg": 97.8
+    },
+    "score": [
+      true,
+      50.0,
+      50.0,
+      7.678447601729895,
+      -0.5105223853020282
+    ],
+    "best_duration_2deg_s": 50.0,
+    "minimum_altitude_km": 680.6491229288458,
+    "minimum_pair_sample_km": 111.61442725948173,
+    "orbit_limits": {
+      "a_range_km": [
+        7042.935871889398,
+        7071.000000000001
+      ],
+      "e_range": [
+        1.2412670766236366e-16,
+        0.007984305259760219
+      ],
+      "i_range_deg": [
+        97.79119188857929,
+        98.78382415802741
+      ],
+      "perigee_altitude_range_km": [
+        615.7029219633177,
+        700.0
+      ],
+      "apogee_altitude_range_km": [
+        700.0000000000027,
+        731.0792131009111
+      ],
+      "period_spread_s": 35.1935289645844,
+      "max_epoch_relative_speed_km_s": 0.31737233880851784
+    },
+    "full_orbit_sample": {
+      "sample_minimum_pair_km": 7.678447601729895,
+      "minimum_altitude_km": 617.7618562614625,
+      "maximum_altitude_km": 728.1146613712699,
+      "period_s": 5917.418145512152
+    },
+    "violations": []
+  },
+  {
+    "parameters": {
+      "side_deg": 20.0,
+      "depth_factor": 0.0,
+      "range_rate_factor": 0.03,
+      "warp_factor": 0.0,
+      "height_km": 700.0,
+      "inclination_deg": 97.8
+    },
+    "score": [
+      true,
+      55.0,
+      55.0,
+      13.316140610136129,
+      -0.4788614872599799
+    ],
+    "best_duration_2deg_s": 55.0,
+    "minimum_altitude_km": 666.91176755162,
+    "minimum_pair_sample_km": 110.86773575137528,
+    "orbit_limits": {
+      "a_range_km": [
+        7015.859122530989,
+        7071.000000000001
+      ],
+      "e_range": [
+        1.2412670766236366e-16,
+        0.012759159525336666
+      ],
+      "i_range_deg": [
+        97.78681823337085,
+        98.7996185210369
+      ],
+      "perigee_altitude_range_km": [
+        555.3426567793276,
+        700.0
+      ],
+      "apogee_altitude_range_km": [
+        700.0000000000027,
+        739.9916901487159
+      ],
+      "period_spread_s": 69.08245229254226,
+      "max_epoch_relative_speed_km_s": 0.34135310692907617
+    },
+    "full_orbit_sample": {
+      "sample_minimum_pair_km": 13.316140610136129,
+      "minimum_altitude_km": 557.5069564304722,
+      "maximum_altitude_km": 737.3364401040872,
+      "period_s": 5917.418145512152
+    },
+    "violations": []
+  },
+  {
+    "parameters": {
+      "side_deg": 20.0,
+      "depth_factor": 0.02,
+      "range_rate_factor": 0.0,
+      "warp_factor": 0.0,
+      "height_km": 700.0,
+      "inclination_deg": 97.8
+    },
+    "score": [
+      false,
+      45.0,
+      45.0,
+      -1.0,
+      -0.6754271818929245
+    ],
+    "best_duration_2deg_s": 45.0,
+    "minimum_altitude_km": 699.4298195937727,
+    "minimum_pair_sample_km": 114.70892152102438,
+    "orbit_limits": {
+      "a_range_km": [
+        7071.000000000001,
+        7215.287996423513
+      ],
+      "e_range": [
+        1.2412670766236366e-16,
+        0.014747138670113135
+      ],
+      "i_range_deg": [
+        97.8,
+        98.78825796786569
+      ],
+      "perigee_altitude_range_km": [
+        700.0,
+        737.8831437954523
+      ],
+      "apogee_altitude_range_km": [
+        700.0000000000027,
+        950.6928490515738
+      ],
+      "period_spread_s": 182.0435608343132,
+      "max_epoch_relative_speed_km_s": 0.2829151589098217
+    },
+    "full_orbit_sample": null,
+    "violations": [
+      "разброс a: 144.288 <= 100 не выполнено",
+      "разброс периодов: 182.044 <= 130 не выполнено",
+      "сближение на полном витке: выборка или ограничения орбиты"
+    ]
+  },
+  {
+    "parameters": {
+      "side_deg": 20.0,
+      "depth_factor": 0.02,
+      "range_rate_factor": 0.01,
+      "warp_factor": 0.0,
+      "height_km": 700.0,
+      "inclination_deg": 97.8
+    },
+    "score": [
+      false,
+      45.0,
+      45.0,
+      -1.0,
+      -0.6238654460010157
+    ],
+    "best_duration_2deg_s": 45.0,
+    "minimum_altitude_km": 699.4298195937727,
+    "minimum_pair_sample_km": 114.60637486110441,
+    "orbit_limits": {
+      "a_range_km": [
+        7071.000000000001,
+        7185.317741649975
+      ],
+      "e_range": [
+        1.2412670766236366e-16,
+        0.011370843404203019
+      ],
+      "i_range_deg": [
+        97.79566729310211,
+        98.8040314724118
+      ],
+      "perigee_altitude_range_km": [
+        700.0,
+        732.6146188002313
+      ],
+      "apogee_altitude_range_km": [
+        700.0000000000027,
+        896.0208644997183
+      ],
+      "period_spread_s": 144.07990731049995,
+      "max_epoch_relative_speed_km_s": 0.3046431239954099
+    },
+    "full_orbit_sample": null,
+    "violations": [
+      "разброс a: 114.318 <= 100 не выполнено",
+      "разброс периодов: 144.080 <= 130 не выполнено",
+      "сближение на полном витке: выборка или ограничения орбиты"
+    ]
+  },
+  {
+    "parameters": {
+      "side_deg": 20.0,
+      "depth_factor": 0.02,
+      "range_rate_factor": 0.02,
+      "warp_factor": 0.0,
+      "height_km": 700.0,
+      "inclination_deg": 97.8
+    },
+    "score": [
+      true,
+      45.0,
+      45.0,
+      25.126284219609726,
+      -0.5809421263354473
+    ],
+    "best_duration_2deg_s": 45.0,
+    "minimum_altitude_km": 699.2159879032279,
+    "minimum_pair_sample_km": 114.49353297722891,
+    "orbit_limits": {
+      "a_range_km": [
+        7071.000000000001,
+        7155.90659396651
+      ],
+      "e_range": [
+        1.2412670766236366e-16,
+        0.00955490580496265
+      ],
+      "i_range_deg": [
+        97.79135445907262,
+        98.81968285621761
+      ],
+      "perigee_altitude_range_km": [
+        693.8499002387989,
+        718.1983061683668
+      ],
+      "apogee_altitude_range_km": [
+        700.0000000000027,
+        853.2806074209711
+      ],
+      "period_spread_s": 106.90137210933881,
+      "max_epoch_relative_speed_km_s": 0.3270188904372073
+    },
+    "full_orbit_sample": {
+      "sample_minimum_pair_km": 25.126284219609726,
+      "minimum_altitude_km": 693.5960637874641,
+      "maximum_altitude_km": 849.5934546811195,
+      "period_s": 5917.418145512152
+    },
+    "violations": []
+  },
+  {
+    "parameters": {
+      "side_deg": 20.0,
+      "depth_factor": 0.02,
+      "range_rate_factor": 0.03,
+      "warp_factor": 0.0,
+      "height_km": 700.0,
+      "inclination_deg": 97.8
+    },
+    "score": [
+      true,
+      50.0,
+      50.0,
+      15.768878712533208,
+      -0.5441531176755979
+    ],
+    "best_duration_2deg_s": 50.0,
+    "minimum_altitude_km": 686.9847547086601,
+    "minimum_pair_sample_km": 114.39076070893685,
+    "orbit_limits": {
+      "a_range_km": [
+        7071.000000000001,
+        7127.041091186845
+      ],
+      "e_range": [
+        1.2412670766236366e-16,
+        0.010117085378974496
+      ],
+      "i_range_deg": [
+        97.78706160877734,
+        98.83521160287609
+      ],
+      "perigee_altitude_range_km": [
+        665.1750778887963,
+        715.7899029918171
+      ],
+      "apogee_altitude_range_km": [
+        700.0000000000027,
+        828.145974405842
+      ],
+      "period_spread_s": 70.48679759840252,
+      "max_epoch_relative_speed_km_s": 0.3498862087038498
+    },
+    "full_orbit_sample": {
+      "sample_minimum_pair_km": 15.768878712533208,
+      "minimum_altitude_km": 665.4520398697641,
+      "maximum_altitude_km": 823.3940513898306,
+      "period_s": 5917.418145512152
+    },
+    "violations": []
+  },
+  {
+    "parameters": {
+      "side_deg": 20.0,
+      "depth_factor": -0.02,
+      "range_rate_factor": 0.0,
+      "warp_factor": 0.0,
+      "height_km": 700.0,
+      "inclination_deg": 97.8
+    },
+    "score": [
+      true,
+      60.0,
+      60.0,
+      25.041647449460726,
+      -0.6128994653005849
+    ],
+    "best_duration_2deg_s": 60.0,
+    "minimum_altitude_km": 672.4498200164116,
+    "minimum_pair_sample_km": 107.68128112017125,
+    "orbit_limits": {
+      "a_range_km": [
+        6985.48784478571,
+        7071.000000000001
+      ],
+      "e_range": [
+        1.2412670766236366e-16,
+        0.00944830876144077
+      ],
+      "i_range_deg": [
+        97.8,
+        98.71535660146209
+      ],
+      "perigee_altitude_range_km": [
+        548.486798778883,
+        700.0
+      ],
+      "apogee_altitude_range_km": [
+        680.488890792537,
+        700.0000000000027
+      ],
+      "period_spread_s": 107.01702108799327,
+      "max_epoch_relative_speed_km_s": 0.26553344072666424
+    },
+    "full_orbit_sample": {
+      "sample_minimum_pair_km": 25.041647449460726,
+      "minimum_altitude_km": 548.3149157780545,
+      "maximum_altitude_km": 701.2563552292158,
+      "period_s": 5917.418145512152
+    },
+    "violations": []
+  },
+  {
+    "parameters": {
+      "side_deg": 20.0,
+      "depth_factor": -0.02,
+      "range_rate_factor": 0.01,
+      "warp_factor": 0.0,
+      "height_km": 700.0,
+      "inclination_deg": 97.8
+    },
+    "score": [
+      false,
+      60.0,
+      60.0,
+      -1.0,
+      -0.5669285471996005
+    ],
+    "best_duration_2deg_s": 60.0,
+    "minimum_altitude_km": 658.5587527566195,
+    "minimum_pair_sample_km": 107.06614189733483,
+    "orbit_limits": {
+      "a_range_km": [
+        6959.179057998657,
+        7071.000000000001
+      ],
+      "e_range": [
+        1.2412670766236366e-16,
+        0.013494227014955493
+      ],
+      "i_range_deg": [
+        97.79550404171692,
+        98.73165222687355
+      ],
+      "perigee_altitude_range_km": [
+        494.2703159522989,
+        700.0
+      ],
+      "apogee_altitude_range_km": [
+        682.0878000450148,
+        700.0000000000027
+      ],
+      "period_spread_s": 139.81084752140669,
+      "max_epoch_relative_speed_km_s": 0.2869989326406431
+    },
+    "full_orbit_sample": null,
+    "violations": [
+      "перигей: 494.270 >= 500 не выполнено",
+      "разброс a: 111.821 <= 100 не выполнено",
+      "разброс периодов: 139.811 <= 130 не выполнено",
+      "сближение на полном витке: выборка или ограничения орбиты"
+    ]
+  },
+  {
+    "parameters": {
+      "side_deg": 20.0,
+      "depth_factor": -0.02,
+      "range_rate_factor": 0.02,
+      "warp_factor": 0.0,
+      "height_km": 700.0,
+      "inclination_deg": 97.8
+    },
+    "score": [
+      false,
+      60.0,
+      60.0,
+      -1.0,
+      -0.5265223730131806
+    ],
+    "best_duration_2deg_s": 60.0,
+    "minimum_altitude_km": 644.481677077818,
+    "minimum_pair_sample_km": 106.50380083807066,
+    "orbit_limits": {
+      "a_range_km": [
+        6933.3453528537,
+        7071.000000000001
+      ],
+      "e_range": [
+        1.2412670766236366e-16,
+        0.017897332852650105
+      ],
+      "i_range_deg": [
+        97.79102859308927,
+        98.74783162868707
+      ],
+      "perigee_altitude_range_km": [
+        438.2569632913028,
+        700.0
+      ],
+      "apogee_altitude_range_km": [
+        686.4337424160976,
+        701.2971074355555
+      ],
+      "period_spread_s": 171.95222494749305,
+      "max_epoch_relative_speed_km_s": 0.3106861773360035
+    },
+    "full_orbit_sample": null,
+    "violations": [
+      "перигей: 438.257 >= 500 не выполнено",
+      "разброс a: 137.655 <= 100 не выполнено",
+      "разброс периодов: 171.952 <= 130 не выполнено",
+      "сближение на полном витке: выборка или ограничения орбиты"
+    ]
+  },
+  {
+    "parameters": {
+      "side_deg": 20.0,
+      "depth_factor": -0.02,
+      "range_rate_factor": 0.03,
+      "warp_factor": 0.0,
+      "height_km": 700.0,
+      "inclination_deg": 97.8
+    },
+    "score": [
+      false,
+      60.0,
+      60.0,
+      -1.0,
+      -0.49225325680149745
+    ],
+    "best_duration_2deg_s": 60.0,
+    "minimum_altitude_km": 630.4766864243111,
+    "minimum_pair_sample_km": 105.9944918899394,
+    "orbit_limits": {
+      "a_range_km": [
+        6907.975701721441,
+        7071.000000000001
+      ],
+      "e_range": [
+        1.2412670766236366e-16,
+        0.022425946949697143
+      ],
+      "i_range_deg": [
+        97.78657377092017,
+        98.76389404510411
+      ],
+      "perigee_altitude_range_km": [
+        382.05780510483874,
+        700.0
+      ],
+      "apogee_altitude_range_km": [
+        691.0908349535175,
+        709.824218002319
+      ],
+      "period_spread_s": 203.45802191817165,
+      "max_epoch_relative_speed_km_s": 0.33563029268229294
+    },
+    "full_orbit_sample": null,
+    "violations": [
+      "перигей: 382.058 >= 500 не выполнено",
+      "разброс a: 163.024 <= 100 не выполнено",
+      "разброс периодов: 203.458 <= 130 не выполнено",
+      "сближение на полном витке: выборка или ограничения орбиты"
+    ]
+  }
+]

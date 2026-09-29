@@ -36,7 +36,7 @@ def create_long_report(config, candidate, audit, result, horizon_days, output_pa
           "created_utc":now.isoformat().replace("+00:00","Z"),
           "requested_horizon_days":float(horizon_days),
           "reason":reason,
-          "verification_scope":"one displayed pass only; no long-term propagation",
+          "verification_scope":"one displayed pass and one full-orbit pair audit; no multi-day propagation",
           "model_id":config["model_id"],"included_forces":result.metadata["included_forces"],
           "N":candidate["N"],"satellite_count":candidate["N"]**2,
           "target_outer_side_deg":candidate["parameters"]["side_deg"],
@@ -46,10 +46,12 @@ def create_long_report(config, candidate, audit, result, horizon_days, output_pa
           "elements_at_epoch":elements,
           "osculating_perigee_estimate_min_km":perigee,
           "osculating_apogee_estimate_max_km":apogee,
-          "one_pass":{"time_s":audit["horizon_s"],
+          "one_pass":{"time_s":audit["one_pass_horizon_s"],
                       "longest_accepted_interval_s":result.metadata["quality"]["longest_interval_s"],
                       "longest_accepted_duration_s":result.metadata["quality"]["longest_contiguous_duration_s"],
-                      "closest_pair":audit["closest_pair"],"pair_count":audit["pair_count"]},
+                      "closest_pair":audit["one_pass_closest_pair"],"pair_count":audit["pair_count"]},
+          "full_orbit_pair_audit":{"time_s":audit["horizon_s"],
+              "closest_pair":audit["closest_pair"],"pair_count":audit["pair_count"]},
           "long_term":{"qualifying_passes":None,"closest_pair":None,
                        "collision_assessment":"not_computed"}}
     (folder/"long_term_assessment.json").write_text(
@@ -59,7 +61,7 @@ def create_long_report(config, candidate, audit, result, horizon_days, output_pa
         f"Запрошенный горизонт: {horizon_days:g} сут. Статус: **не вычислено**.\n\n"
         f"Причина: {reason}\n\n"
         "Файл `long_term_assessment.json` хранит модель, конфигурацию, "
-        "элементы всех КА и только численные итоги одного показанного пролёта. "
+        "элементы всех КА, итоги показанного пролёта и аудит пар полного витка. "
         "Число подходящих последующих пролётов и минимальное расстояние "
         "на запрошенном горизонте неизвестны.\n",encoding="utf-8")
     return {"folder":str(folder.resolve()),"status":"not_computed","reason":reason}

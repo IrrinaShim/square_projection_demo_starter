@@ -11,6 +11,7 @@ from orbit_study.model import reconstruct
 from square_demo.core import project
 from square_demo.drag_study import load_or_search
 from square_demo.drag_provider import calculate_drag_case
+from square_demo.grid import expected_neighbor_angle_deg
 
 
 class DragStudyTests(unittest.TestCase):
@@ -40,8 +41,17 @@ class DragStudyTests(unittest.TestCase):
         result=calculate_drag_case(c,candidate)
         self.assertEqual(result.r_eci_km.shape[1],100)
         self.assertEqual(audit["pair_count"],4950)
-        self.assertEqual(result.metadata["quality"]["longest_contiguous_duration_s"],30.)
-        self.assertLess(abs(audit["closest_pair"]["distance_km"]-2.458856),1e-5)
+        self.assertEqual(result.metadata["quality"]["longest_contiguous_duration_s"],0.)
+        self.assertFalse(audit["verified_acceptable"])
+        self.assertGreater(audit["closest_pair"]["distance_km"],1.02)
+        self.assertEqual(audit["horizon_s"][0],0.)
+        self.assertGreater(audit["horizon_s"][1],5000.)
+        self.assertLess(p["orbit_closeness"]["a_range_km"][1]-p["orbit_closeness"]["a_range_km"][0],100.)
+        self.assertLess(p["orbit_closeness"]["e_range"][1],.03)
+        epoch=int(np.argmin(np.abs(result.t_s)))
+        self.assertLess(np.max(np.linalg.norm(result.image_gnomonic[epoch]
+                              -result.target_image_gnomonic,axis=1)),2e-12)
+        self.assertLess(expected_neighbor_angle_deg(10,20),2.)
         self.assertTrue(np.allclose(result.rho_oso_km.mean(axis=1),0,atol=1e-9))
         basis=result.metadata["local_basis_eci"]
         absolute=result.metadata["center_eci_km"][:,None,:]+np.einsum(
@@ -55,6 +65,16 @@ class DragStudyTests(unittest.TestCase):
         self.assertLess(np.max(np.abs(finite_difference-
             result.metadata["local_velocity_oso_km_s"][center])),1e-5)
         self.assertTrue(np.all(result.accel_oso_m_s2==0))
+
+    def test_old_candidate_rejected_and_smaller_grids_retained(self):
+        old=json.loads((HERE/"results"/"case_unconstrained_legacy.json").read_text(encoding="utf-8"))
+        self.assertGreater(max(entry["a_km"] for entry in old["elements_at_epoch"]),9000.)
+        for size in (2,3):
+            c,candidate,audit,_=load_or_search(size,20,2.)
+            self.assertTrue(audit["verified_acceptable"])
+            self.assertEqual(len(candidate["elements_at_epoch"]),size*size)
+            self.assertGreater(audit["horizon_s"][1],5000.)
+            self.assertGreater(audit["closest_pair"]["distance_km"],audit["threshold_km"])
 
     def test_inter_node_pair_minimum(self):
         cfg=self.saved["config"]

@@ -37,7 +37,7 @@ def _exact_pair(states,left_s,right_s,guess_s,config):
     return event_time,pair_state[:,0]
 
 
-def audit_one_pass(states,times,config,threshold_km=None):
+def audit_one_pass(states,times,config,threshold_km=None,cancel_event=None):
     count=states.shape[1]
     pairs=np.array(list(combinations(range(count),2)),dtype=int)
     threshold=float(threshold_km if threshold_km is not None else
@@ -46,6 +46,8 @@ def audit_one_pass(states,times,config,threshold_km=None):
     events={}
     refine_candidates=[]
     for offset in range(0,len(pairs),192):
+        if cancel_event is not None and cancel_event.is_set():
+            raise ValueError("Аудит пар отменён после изменения параметров")
         block=pairs[offset:offset+192]
         i,j=block.T
         dr=states[:,i,0]-states[:,j,0]

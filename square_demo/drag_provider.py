@@ -4,7 +4,7 @@ from __future__ import annotations
 import numpy as np
 
 from orbit_study.drag_model import drag_acceleration_km_s2, integrate
-from .core import assemble_absolute, spatial_size_metrics
+from .core import assemble_absolute, spatial_size_metrics, visibility_summary
 from .orbit_j2 import centroid_relative_frame
 from .providers import _metadata
 
@@ -52,6 +52,15 @@ def calculate_drag_case(config,candidate):
     result=assemble_absolute(t,states[:,:,0],basis,robs,accel,candidate["target"],
                              orbit,metadata,orbit_line,period)
     result.metadata["spatial_size_metrics"]=spatial_size_metrics(result.r_eci_km,size)
+    observation=result.metadata["observability"]
+    limit=float(config["grid_tolerances"]["max_outer_side_relative_error"])*100
+    deviation=observation["size_deviation_percent"]
+    size_ok=np.isfinite(deviation)&(np.abs(deviation)<=limit)
+    observation["eligible"] &= size_ok
+    for k in np.flatnonzero(~size_ok):
+        observation["reasons"][k]+=("; " if observation["reasons"][k] else "")+(
+            f"внешний размер: отклонение {deviation[k]:+.2f}% > {limit:g}%")
+    result.metadata["quality"]=visibility_summary(result)
     if not np.allclose(result.rho_oso_km,rho,atol=1e-9):
         raise ValueError("Центрированная система не согласована с абсолютными состояниями")
     return result

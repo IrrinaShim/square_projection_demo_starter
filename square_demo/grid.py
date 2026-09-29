@@ -18,6 +18,18 @@ def corner_indices(size):
     return np.array([ids[0,0],ids[0,-1],ids[-1,-1],ids[-1,0]],dtype=int)
 
 
+def expected_neighbor_angle_deg(size,outer_side_deg):
+    """Наименьший истинный угол соседних лучей идеальной гномонической сетки."""
+    grid_indices(size)
+    alpha=np.tan(np.deg2rad(outer_side_deg))
+    u,v=np.meshgrid(np.linspace(0,alpha,size),np.linspace(0,alpha,size))
+    rays=np.stack((np.ones_like(u),u,v),axis=-1)
+    rays/=np.linalg.norm(rays,axis=-1,keepdims=True)
+    cosines=np.r_[np.sum(rays[:,:-1]*rays[:,1:],axis=2).ravel(),
+                   np.sum(rays[:-1]*rays[1:],axis=2).ravel()]
+    return float(np.rad2deg(np.arccos(np.clip(cosines,-1,1))).min())
+
+
 def initial_grid_from_corners(corner_states, size, observer_position, sight, exi, eeta,
                               angular_side_deg, mu):
     """Интерполяция только начальных данных, затем отдельные элементы каждого КА."""
