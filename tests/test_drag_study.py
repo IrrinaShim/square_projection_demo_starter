@@ -1,6 +1,8 @@
 """Проверки новой физики, сохранённых элементов и межузлового минимума."""
 import json
 import unittest
+from unittest.mock import patch
+from threading import Event
 
 import numpy as np
 
@@ -14,6 +16,7 @@ from square_demo.core import project
 from square_demo.drag_study import load_or_search
 from square_demo.drag_provider import calculate_drag_case
 from square_demo.grid import expected_neighbor_angle_deg
+from square_demo.ui import DemoWindow
 
 
 class DragStudyTests(unittest.TestCase):
@@ -33,6 +36,26 @@ class DragStudyTests(unittest.TestCase):
         self.assertLess(drag_acceleration_km_s2(r,faster,6371.,
             cfg["observer"]["earth_rotation_rad_s"],cfg["spacecraft"],
             cfg["atmosphere"])[1],0)
+
+    def test_main_window_never_silently_uses_archived_case(self):
+        with patch("orbit_study.passive_optimizer.load_cached",return_value=None), \
+             patch("square_demo.drag_study.initial_candidate") as historical:
+            with self.assertRaisesRegex(FileNotFoundError,"Архивные орбиты автоматически не загружаются"):
+                load_or_search(10,20,2.,allow_search=False)
+            historical.assert_not_called()
+
+    def test_calculate_rechecks_incompatible_cache(self):
+        parameters=(2,20.,2.,25.3026,51.5132,15.,700.,97.8,
+                    "2026-09-28T00:00:00Z")
+        with patch("square_demo.ui.load_or_search",side_effect=[
+                 ValueError("Сохранённый подбор несовместим с текущей моделью"),
+                 ("scenario","candidate","audit","source")]) as loader, \
+             patch("orbit_study.passive_optimizer.optimize") as search, \
+             patch("square_demo.ui.calculate_drag_case",return_value="result"):
+            output=DemoWindow._calculate_task(parameters,Event(),True,16,lambda _:None)
+            self.assertEqual(output,("scenario","candidate","audit","source","result"))
+            self.assertEqual(loader.call_count,2)
+            search.assert_called_once()
 
     def test_saved_elements_and_pass(self):
         p=self.saved

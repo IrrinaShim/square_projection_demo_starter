@@ -24,21 +24,35 @@ def ready(n,side,timeout=30):
     raise AssertionError((n,side,w.status.text()))
 
 ready(10,20)
+assert w.windowTitle().endswith('подбор v5')
+assert w.calculate_button.text()=='Рассчитать'
+assert not hasattr(w,'search_budget') and not hasattr(w,'search_button')
+assert 'ffcf6dd1184f55b05c72' in w.status.text()
+assert 'Проверка проекции через 1 с: 12 с' in w.status.text()
 assert [w.mode.itemText(i) for i in range(w.mode.count())]==['Без управления','С управлением']
 assert w.result.r_eci_km.shape==(181,100,3)
 assert w.study_record['pair_count']==4950
 assert w.study_record['horizon_s'][1]>5000
 assert w.study_record['orbital_direction']['full_orbit']['ok']
 assert w.study_record['orbital_direction']['full_orbit']['max_angle_deg']<5.
+for scope in ('epoch','one_pass','full_orbit'):
+    assert w.study_record['orbital_direction'][scope]['min_dot']>0
+    assert w.study_record['orbital_direction'][scope]['max_angle_deg']<=5.
 assert 'максимальный угол нормалей' in w.status.text().lower()
 assert 'часть условий' in w.status.text()
 assert 'ожидаемый' not in w.metrics.text().lower()
 assert 'порог модели' not in w.metrics.text().lower()
-assert '10 с' in w.pass_badge.text() and '2°: 0 с' in w.pass_badge.text()
+assert '10 с' in w.pass_badge.text() and '12 с' in w.pass_badge.text() and '2°: 0 с' in w.pass_badge.text()
 assert 'атмосферное сопротивление' in w.model_summary.text()
 assert 'Минимум между КА сейчас' in w.safety_badge.text()
 assert 'Внешняя сторона: 20.000°' in w.metrics.text()
 assert abs(w.result.rho_oso_km.mean(axis=1)).max()<1e-9
+frame=w.time_slider.value()
+chosen=w._space_artists['arrow_spacecraft_indices']
+local_vectors=w._space_artists['arrow_vectors_km_s']
+expected=w.result.metadata['velocity_eci_km_s'][frame,chosen] @ w.result.metadata['local_basis_eci'][frame]
+np.testing.assert_allclose(local_vectors,expected,atol=1e-12)
+assert np.all(local_vectors @ local_vectors[0]>0)
 with TemporaryDirectory() as tmp:
     with patch.object(QFileDialog,'getExistingDirectory',return_value=tmp): w.long_button.click()
     folders=list(Path(tmp).glob('N10_*'))
@@ -47,7 +61,7 @@ with TemporaryDirectory() as tmp:
     assert report['status']=='not_computed' and len(report['elements_at_epoch'])==100
 w.mode.setCurrentIndex(1)
 assert w.result is None and 'для N>2 рассчитанных данных управления нет' in w.status.text()
-w.mode.setCurrentIndex(0);ready(10,20)
+w.mode.setCurrentIndex(0);w.calculate_button.click();ready(10,20)
 w.elements_button.click()
 assert w.elements_table.isVisible() and w.elements_table.rowCount()==100
 w.elements_button.click()
@@ -73,8 +87,12 @@ assert np.allclose(w.space.axes.get_xlim(),local)
 for n in (2,3):
     w.grid_size.setValue(n)
     assert w.result is None and 'Параметры изменены' in w.status.text()
+    w.calculate_button.click()
     ready(n,20)
     assert w.study_record['pair_count']==n*n*(n*n-1)//2
+    for scope in ('epoch','one_pass','full_orbit'):
+        assert w.study_record['orbital_direction'][scope]['min_dot']>0
+        assert w.study_record['orbital_direction'][scope]['max_angle_deg']<=5.
     assert w.elements_table.rowCount()==n*n
     w.time_slider.setValue(0)
     assert 'Наблюдаемый квадрат сейчас' in w.observable_badge.text()
@@ -98,7 +116,7 @@ for n in (2,3):
         w.time_slider.setValue(96)
         assert 'наблюдаемый квадрат сейчас: нет' in w.observable_badge.text().lower()
         assert '-55…25 с (80 с)' in w.pass_badge.text()
-w.grid_size.setValue(10);ready(10,20)
+w.grid_size.setValue(10);w.calculate_button.click();ready(10,20)
 w.time_slider.setValue(90);w.toggle_play()
 start=time.perf_counter()
 while time.perf_counter()-start<.5: app.processEvents();time.sleep(.01)
@@ -113,6 +131,6 @@ with TemporaryDirectory() as tmp:
     assert len(list(Path(tmp).glob('N*')))==1
 w.angular_side.setValue(30)
 assert w.result is None and 'Параметры изменены' in w.status.text()
-w.angular_side.setValue(20);ready(10,20)
+w.angular_side.setValue(20);w.calculate_button.click();ready(10,20)
 print('OK: N=2/3/10, 100 КА, два режима, ползунок, анимация, камера, отбрасывание старых траекторий, отдельный отчёт')
 w.close()

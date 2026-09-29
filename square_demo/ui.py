@@ -87,7 +87,8 @@ class ObservableTimeline(QWidget):
 class DemoWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Наблюдаемая сетка КА — один пролёт")
+        from orbit_study.passive_optimizer import VERSION as optimizer_version
+        self.setWindowTitle(f"Наблюдаемая сетка КА — один пролёт — подбор v{optimizer_version}")
         self.resize(1530,900)
         self.result=None
         self.scenario=None
@@ -100,11 +101,7 @@ class DemoWindow(QMainWindow):
         self._cancel_event=None
         self._generation=0
         self._progress=Queue()
-        self._pending_optimization=False
-        self._debounce=QTimer(self)
-        self._debounce.setSingleShot(True)
-        self._debounce.setInterval(350)
-        self._debounce.timeout.connect(self._start_calculation)
+        self._queued_calculation=False
         self._poll=QTimer(self)
         self._poll.setInterval(80)
         self._poll.timeout.connect(self._collect_calculation)
@@ -196,13 +193,10 @@ class DemoWindow(QMainWindow):
         root.addWidget(self.status)
         search_controls=QHBoxLayout()
         root.addLayout(search_controls)
-        self.search_button=QPushButton("Подобрать орбиты")
-        self.search_button.clicked.connect(self.start_optimization)
-        search_controls.addWidget(self.search_button)
-        search_controls.addWidget(QLabel("Бюджет прямых расчётов:"))
-        self.search_budget=QSpinBox();self.search_budget.setRange(4,500);self.search_budget.setValue(16)
-        search_controls.addWidget(self.search_budget)
-        self.cancel_button=QPushButton("Отменить подбор")
+        self.calculate_button=QPushButton("Рассчитать")
+        self.calculate_button.clicked.connect(self.run_calculation)
+        search_controls.addWidget(self.calculate_button)
+        self.cancel_button=QPushButton("Отменить расчёт")
         self.cancel_button.setEnabled(False)
         self.cancel_button.clicked.connect(self.cancel_current)
         search_controls.addWidget(self.cancel_button)
@@ -292,6 +286,7 @@ class DemoWindow(QMainWindow):
         self.note.setWordWrap(True)
         root.addWidget(self.note)
         self.calculate_current()
+        self.run_calculation()
 
     def _clear_result(self,message):
         self.timer.stop()
@@ -339,14 +334,11 @@ class DemoWindow(QMainWindow):
 
     def calculate_current(self,*_):
         self._generation+=1
-        self._pending_optimization=False
+        self._queued_calculation=False
         if self._cancel_event is not None: self._cancel_event.set()
-        self._debounce.stop()
-        self._clear_result("Параметры изменены. Проверяю сохранённые орбиты; новый подбор запускается кнопкой.")
+        self._clear_result("Параметры изменены. Нажмите «Рассчитать»: сохранённый случай загрузится, для новых параметров начнётся подбор.")
         if self.mode.currentData()=="controlled":
             self._start_calculation()
-        else:
-            self._debounce.start()
 
     def _request_parameters(self):
         return (self.grid_size.value(),self.angular_side.value(),2.,
@@ -357,59 +349,64 @@ class DemoWindow(QMainWindow):
     @staticmethod
     def _calculate_task(parameters,cancel_event,do_optimization,budget,progress):
         size,side,resolution,lat,lon,elevation,altitude,inclination,epoch=parameters
-        if do_optimization:
+        try:
+            scenario,candidate,audit,source=load_or_search(size,side,resolution,lat,lon,
+                elevation,altitude,inclination,cancel_event=cancel_event,
+                epoch_utc=epoch,allow_search=False)
+        except (FileNotFoundError,ValueError) as exc:
+            if isinstance(exc,ValueError) and "Сохранённый подбор несовместим" not in str(exc):
+                raise
+            if not do_optimization:raise
             from orbit_study.passive_optimizer import configuration, optimize
             cfg=configuration(size,side,lat,lon,elevation,epoch,altitude,inclination)
+            progress("Совместимого сохранённого расчёта нет; подбираю соседние сонаправленные орбиты и проверяю пролёт…")
             optimize(cfg,size,budget=budget,cancel_event=cancel_event,progress=progress)
-        scenario,candidate,audit,source=load_or_search(size,side,resolution,lat,lon,
-            elevation,altitude,inclination,cancel_event=cancel_event,
-            epoch_utc=epoch,allow_search=False)
+            scenario,candidate,audit,source=load_or_search(size,side,resolution,lat,lon,
+                elevation,altitude,inclination,cancel_event=cancel_event,
+                epoch_utc=epoch,allow_search=False)
         if cancel_event.is_set(): raise ValueError("Расчёт отменён")
         result=calculate_drag_case(scenario,candidate)
         return scenario,candidate,audit,source,result
 
-    def start_optimization(self):
-        if self.mode.currentData()!="passive":return
+    def run_calculation(self):
         self._generation+=1
         if self._cancel_event is not None:self._cancel_event.set()
-        self._pending_optimization=True
-        self._debounce.stop()
-        self._clear_result("Подбор запрошен; готовлю начальные приближения…")
+        self._queued_calculation=True
+        self._clear_result("Рассчитываю: проверяю сохранённый случай; при его отсутствии начну подбор…")
         self._start_calculation()
 
     def cancel_current(self):
         if self._cancel_event is not None:self._cancel_event.set()
         self._generation+=1
-        self._pending_optimization=False
+        self._queued_calculation=False
         self.status.setText("Отмена запрошена. Уже рассчитанные кандидаты сохранены; проверяю доступный результат…")
 
     def _start_calculation(self):
         size=self.grid_size.value()
         side=self.angular_side.value()
         if self.mode.currentData()=="controlled":
-            self.search_button.setEnabled(False)
+            self.calculate_button.setEnabled(True)
+            self._queued_calculation=False
             self.model_summary.setText("Расчёт управления для выбранной сетки пока не подготовлен")
             reason=("исторический случай 4 КА имеет внешнюю сторону 1,8183°, фактически приложенную тягу до 0,510 Н при принятой массе 22 кг, но не имеет согласованной UTC-эпохи, модели J₂+сопротивление и подтверждённого двигателя 16U"
                     if size==2 else "для N>2 рассчитанных данных управления нет")
             self._clear_result(f"С управлением: для N={size}, внешней стороны {side:g}° проверенного решения нет; {reason}.")
             return
-        self.search_button.setEnabled(True)
+        self.calculate_button.setEnabled(True)
         self.model_summary.setText("Каждый КА: собственная орбита; центральное поле + J₂ + атмосферное сопротивление; тяга отсутствует")
         if self._future is not None and not self._future.done():
             self.status.setText("Новый запрос ожидает завершения предыдущего; устаревший результат будет отброшен…")
             self._poll.start()
             return
         self._cancel_event=Event()
-        optimizing=self._pending_optimization
-        self._pending_optimization=False
-        self.cancel_button.setEnabled(optimizing)
+        self._queued_calculation=False
+        self.cancel_button.setEnabled(True)
         self._future=self._executor.submit(self._calculate_task,self._request_parameters(),
-                                           self._cancel_event,optimizing,self.search_budget.value(),
+                                           self._cancel_event,True,max(16,4*size),
                                            lambda message,generation=self._generation:
                                                self._progress.put((generation,message)))
         self._future_generation=self._generation
-        self.status.setText((f"N={size}, сторона {side:g}°: подбор выполняется в фоновом потоке…" if optimizing
-                             else f"N={size}, сторона {side:g}°: загружаю сохранённый расчёт…"))
+        self.status.setText(f"N={size}, сторона {side:g}°: загружаю проверенный результат или подбираю новые орбиты в фоновом потоке…")
         self._poll.start()
 
     def _collect_calculation(self):
@@ -423,7 +420,8 @@ class DemoWindow(QMainWindow):
         self._future=None
         self.cancel_button.setEnabled(False)
         if self._future_generation!=self._generation:
-            if self.mode.currentData()=="passive": self._start_calculation()
+            if self.mode.currentData()=="passive" and self._queued_calculation:
+                self._start_calculation()
             else: self._poll.stop()
             return
         self._poll.stop()
@@ -434,6 +432,7 @@ class DemoWindow(QMainWindow):
                             -audit["saved_duration_s"])>1e-8):
                 raise ValueError("Повторный пролёт не совпадает с сохранённой проверкой")
         except Exception as exc:
+            print(f"square_projection calculation_error: {exc}",flush=True)
             self._clear_result(str(exc))
             return
         size=self.grid_size.value(); side=self.angular_side.value()
@@ -441,6 +440,10 @@ class DemoWindow(QMainWindow):
         self.play_button.setText("Пуск")
         self.scenario,self.study_record,self.study_data=scenario,audit,candidate
         self.result=result
+        print(f"square_projection selected: N={candidate['N']} side={scenario['angular_side_deg']:g}°; "
+              f"{source}; square_1s={audit.get('verified_duration_1s_s',0):g}s; "
+              f"max_normal_orbit={audit['orbital_direction']['full_orbit']['max_angle_deg']:.6f}°",
+              flush=True)
         self._grid_artists={}
         self._space_artists=None
         self.time_slider.setEnabled(True)
@@ -466,7 +469,8 @@ class DemoWindow(QMainWindow):
         problems.extend(audit["violations"])
         problem_text=(" Нарушения: "+"; ".join(problems)+"." if problems else "")
         normal_angle=audit["orbital_direction"]["full_orbit"]["max_angle_deg"]
-        self.status.setText(f"N={size}, внешняя сторона {side:g}°: {state}; {source}. Интервал наблюдаемого квадрата {duration:g} с; минимум всех {audit['pair_count']} пар за полный виток {audit['closest_pair']['distance_km']:.3f} км; максимальный угол нормалей {normal_angle:.3f}° (предел 5°, hᵢ·h₀>0).{problem_text} Многосуточная повторяемость не проверена.")
+        checked_duration=audit.get("verified_duration_1s_s",duration)
+        self.status.setText(f"N={size}, внешняя сторона {side:g}°: {state}; {source}. Проверка проекции через 1 с: {checked_duration:g} с; показанные кадры через {scenario['display']['step_s']:g} с: {duration:g} с. Минимум всех {audit['pair_count']} пар за полный виток {audit['closest_pair']['distance_km']:.3f} км; максимальный угол нормалей {normal_angle:.3f}° (предел 5°, hᵢ·h₀>0).{problem_text} Многосуточная повторяемость не проверена.")
         self.status.setStyleSheet("background:#fff0d9;color:#805015;padding:5px;" if accepted else "background:#ffe3df;color:#8b241d;padding:5px;")
         observer=scenario["observer"]
         orbit=scenario["orbit"]
@@ -559,7 +563,12 @@ class DemoWindow(QMainWindow):
         self.observable_badge.setText(f"{'● Наблюдаемый квадрат сейчас: да' if good else '● Наблюдаемый квадрат сейчас: нет — '+reason}. Минимальный угол места {obs['min_elevation_deg'][k]:.2f}°. Видимость всех КА: {vis_text}.")
         self.observable_badge.setStyleSheet("background:#d9f4e3;color:#145b32;padding:5px;" if good else "background:#ffe3df;color:#8b241d;padding:5px;")
         audit=self.study_record
-        self.pass_badge.setText(f"Интервал наблюдаемого квадрата на пролёте: {interval}. Отдельный сценарий разрешения 2°: {audit['instrument_duration_2deg_s']:g} с.")
+        verified=audit.get("verified_intervals_1s")
+        if verified:
+            best=max(verified,key=lambda item:item["duration_s"])
+            precise=f" Проверка с шагом 1 с: {best['start_s']:g}…{best['end_s']:g} с ({best['duration_s']:g} с)."
+        else:precise=""
+        self.pass_badge.setText(f"Интервал на кадрах с шагом {self.scenario['display']['step_s']:g} с: {interval}.{precise} Отдельный сценарий разрешения 2°: {audit['instrument_duration_2deg_s']:g} с.")
         self.pass_badge.setStyleSheet("background:#d9f4e3;color:#145b32;padding:5px;" if quality["has_positive_duration_interval"] else "background:#ffe3df;color:#8b241d;padding:5px;")
         orbit_ok=audit["full_orbit_ok"]
         issues="; ".join(audit["full_orbit_violations"])
@@ -655,7 +664,7 @@ class DemoWindow(QMainWindow):
             radius=max(1.,float(np.max(high-low))*.575)
             bounds=[(c-radius,c+radius) for c in center]
             labels=("x, км","y, км","z, км")
-            if rebuild: ax.set_title("Локальная система: центр группы")
+            if rebuild: ax.set_title("Центр группы: следы относительные, стрелки — инерциальное движение")
         else:
             xyz=r.r_eci_km
             labels=("X ECI, км","Y ECI, км","Z ECI, км")
@@ -686,7 +695,12 @@ class DemoWindow(QMainWindow):
         for j,line in self._space_artists["traces"].items():
             start=max(0,k-40)
             line.set_data_3d(*xyz[start:k+1,j].T)
-        velocity=(r.metadata["local_velocity_oso_km_s"] if mode=="local"
+        # The local trace is relative to the rotating centroid frame. Showing
+        # its derivative as an orbital-direction arrow made co-directed craft
+        # appear to fly in opposite directions. Arrows consistently represent
+        # absolute ECI velocity, expressed in the axes of the selected view.
+        velocity=(np.einsum("tji,tsj->tsi",r.metadata["local_basis_eci"],
+                            r.metadata["velocity_eci_km_s"]) if mode=="local"
                   else r.metadata["velocity_eci_km_s"])
         if "velocity_arrows" in self._space_artists:
             self._space_artists["velocity_arrows"].remove()
@@ -697,6 +711,8 @@ class DemoWindow(QMainWindow):
             normalize=True,color="#a32929",linewidth=.9,arrow_length_ratio=.28)
         self._space_artists["arrow_frame_index"]=k
         self._space_artists["trace_end_time_s"]=float(r.t_s[k])
+        self._space_artists["arrow_vectors_km_s"]=velocity[k,selected_index].copy()
+        self._space_artists["arrow_spacecraft_indices"]=selected_index.copy()
         rows=np.empty(size*size,dtype=int)
         for row in range(size): rows[ids[row]]=row
         if rebuild:

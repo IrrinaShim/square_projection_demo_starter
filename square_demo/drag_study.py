@@ -44,6 +44,9 @@ def _checked_audit(cfg,checked):
         "one_pass_closest_pair":{"distance_km":one["minimum_pair_sample_km"],"method":"узлы 1 с"},
         "dangerous_events_count":full["dangerous_event_count"],
         "saved_duration_s":one["best_square_duration_display_s"],
+        "verified_duration_1s_s":one["best_square_duration_s"],
+        "verified_intervals_1s":one["square_intervals"],
+        "verified_resolution_2deg_1s_s":one["best_resolution_2deg_s"],
         "instrument_duration_2deg_s":one["best_resolution_2deg_display_s"],
         "minimum_altitude_km":full["altitude_range_km"][0],
         "maximum_altitude_km":full["altitude_range_km"][1],
@@ -75,7 +78,13 @@ def load_or_search(size,side_deg,neighbor_deg,latitude_deg=25.3026,
     if cached is not None:
         cfg,candidate,data,path=cached
         audit=_checked_audit(cfg,data["verification"])
-        return cfg,candidate,audit,f"подбор из {path}: один пролёт и полный виток проверены"
+        audit["optimizer_schema_version"]=data["schema_version"]
+        audit["candidate_file"]=str(path)
+        return cfg,candidate,audit,(f"подбор v{data['schema_version']}, файл {path.name} "
+                                    f"в {path.parent.name}; один пролёт и полный виток проверены")
+    if not allow_search:
+        raise FileNotFoundError("Для выбранных параметров нет сохранённого подбора текущей версии. "
+            "Архивные орбиты автоматически не загружаются. Нажмите «Рассчитать».")
     case_path=ROOT/"results"/(f"n{size}/case.json" if size in (2,3) else "case.json")
     saved=json.loads(case_path.read_text(encoding="utf-8")) if case_path.exists() else None
     same=(saved is not None and saved.get("schema_version")==3
@@ -100,8 +109,6 @@ def load_or_search(size,side_deg,neighbor_deg,latitude_deg=25.3026,
         cfg["angular_side_deg"]=float(side_deg)
         return cfg,candidate,audit,("архивные элементы повторно проверены в текущей модели" if audit["verified_acceptable"]
                                     else "архивные элементы повторно проверены; критерии выполнены частично")
-    if not allow_search:
-        raise FileNotFoundError("Для выбранных параметров сохранённого расчёта нет. Нажмите «Подобрать орбиты». Старые траектории не используются.")
     cfg,candidate,preview,_=search(cfg,size,side_deg,budget,cancel_event)
     if cancel_event is not None and cancel_event.is_set():
         raise ValueError("Расчёт отменён после изменения параметров")
