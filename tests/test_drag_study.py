@@ -36,7 +36,9 @@ class DragStudyTests(unittest.TestCase):
 
     def test_saved_elements_and_pass(self):
         p=self.saved
-        self.assertEqual(p["model_fingerprint_sha256"],model_fingerprint())
+        # Исторический отчёт использует прежний ключ модели; действующее
+        # приложение загружает повторно проверенный результат версии 3.
+        self.assertNotEqual(p["model_fingerprint_sha256"],model_fingerprint())
         c,candidate,audit,source=load_or_search(10,20,2.)
         states=reconstruct(p["elements_at_epoch"],c["orbit"]["mu_km3_s2"])
         np.testing.assert_allclose(states,candidate["states"],atol=1e-7)
@@ -46,6 +48,8 @@ class DragStudyTests(unittest.TestCase):
         self.assertEqual(result.metadata["quality"]["longest_contiguous_duration_s"],10.)
         self.assertFalse(audit["verified_acceptable"])
         self.assertTrue(audit["full_orbit_ok"])
+        self.assertTrue(audit["orbital_direction"]["full_orbit"]["ok"])
+        self.assertLess(audit["orbital_direction"]["full_orbit"]["max_angle_deg"],5.)
         self.assertEqual(audit["instrument_duration_2deg_s"],0.)
         self.assertGreater(audit["closest_pair"]["distance_km"],1.02)
         self.assertEqual(audit["horizon_s"][0],0.)
@@ -79,6 +83,7 @@ class DragStudyTests(unittest.TestCase):
             self.assertEqual(len(candidate["elements_at_epoch"]),size*size)
             self.assertGreater(audit["horizon_s"][1],5000.)
             self.assertGreater(audit["closest_pair"]["distance_km"],audit["threshold_km"])
+            self.assertTrue(audit["orbital_direction"]["full_orbit"]["ok"])
 
     def test_inter_node_pair_minimum(self):
         cfg=self.saved["config"]

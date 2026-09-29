@@ -28,6 +28,9 @@ assert [w.mode.itemText(i) for i in range(w.mode.count())]==['Без управ�
 assert w.result.r_eci_km.shape==(181,100,3)
 assert w.study_record['pair_count']==4950
 assert w.study_record['horizon_s'][1]>5000
+assert w.study_record['orbital_direction']['full_orbit']['ok']
+assert w.study_record['orbital_direction']['full_orbit']['max_angle_deg']<5.
+assert 'максимальный угол нормалей' in w.status.text().lower()
 assert 'часть условий' in w.status.text()
 assert 'ожидаемый' not in w.metrics.text().lower()
 assert 'порог модели' not in w.metrics.text().lower()
@@ -53,12 +56,16 @@ w.view.setCurrentIndex(1)
 close=np.array(w.space.axes.get_xlim())
 chief=w.result.r_eci_km[w.time_slider.value(),0,0]
 assert abs(close.mean()-chief)<1e-8
+assert w._space_artists['arrow_frame_index']==w.time_slider.value()
+assert w._space_artists['trace_end_time_s']==w.result.t_s[w.time_slider.value()]
 w.view.setCurrentIndex(2)
 assert np.diff(w.space.axes.get_xlim())[0]>10000
 w.view.setCurrentIndex(3)
 fixed=np.array(w.space.axes.get_xlim())
 w.time_slider.setValue(110)
 assert np.allclose(w.space.axes.get_xlim(),fixed)
+assert w._space_artists['arrow_frame_index']==110
+assert w._space_artists['trace_end_time_s']==w.result.t_s[110]
 w.view.setCurrentIndex(1)
 assert not np.allclose(w.space.axes.get_xlim(),close)
 w.view.setCurrentIndex(0)

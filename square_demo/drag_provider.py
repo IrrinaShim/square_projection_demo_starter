@@ -4,6 +4,7 @@ from __future__ import annotations
 import numpy as np
 
 from orbit_study.drag_model import drag_acceleration_km_s2, integrate
+from orbit_study.orbit_direction import audit_orbit_normals
 from .core import assemble_absolute, spatial_size_metrics, visibility_summary
 from .orbit_j2 import centroid_relative_frame
 from .providers import _metadata
@@ -21,6 +22,9 @@ def calculate_drag_case(config,candidate):
     t=np.arange(display["start_s"],display["end_s"]+display["step_s"]*.25,
                 display["step_s"])
     states=integrate(candidate["states"],t,config,display["integration_step_s"])
+    direction=audit_orbit_normals(states,t)
+    if not direction["ok"]:
+        raise ValueError("Нельзя показывать пассивную сетку как подходящую: "+direction["reason"])
     period=2*np.pi*np.sqrt(candidate["elements_at_epoch"][0]["a_km"]**3
                           /orbit["mu_km3_s2"])
     line_t=np.linspace(0,period,361)
@@ -49,6 +53,8 @@ def calculate_drag_case(config,candidate):
         "center_velocity_eci_km_s":center_velocity,
         "local_basis_eci":basis,
         "local_velocity_oso_km_s":local_velocity,
+        "velocity_eci_km_s":states[:,:,1],
+        "orbital_direction_on_display":direction,
         "local_frame_orientation":"e_x=r0/|r0|; e_z=(r0×v0)/|r0×v0|; e_y=e_z×e_x",
         "included_forces":["центральное притяжение Земли","J₂","атмосферное сопротивление"],
         "research_only":True,"frame":config["frame"],

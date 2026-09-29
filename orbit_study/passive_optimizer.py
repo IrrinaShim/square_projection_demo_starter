@@ -20,6 +20,7 @@ from orbit_study.drag_demo.search import checked_geometry, orbit_limits, prepare
 from orbit_study.drag_model import integrate
 from orbit_study.evaluate import intervals
 from orbit_study.model import reconstruct
+from orbit_study.orbit_direction import MAX_NORMAL_ANGLE_DEG, audit_orbit_normals
 from square_demo.core import image_frame, observer_eci, project, spatial_size_metrics, zenith_orbit
 from square_demo.grid import corner_indices, grid_indices
 from square_demo.orbit_j2 import orbital_basis, state_to_elements
@@ -28,7 +29,7 @@ from square_demo.providers import _fit_initial_states
 ROOT=Path(__file__).resolve().parent
 BASE=ROOT/"drag_demo"/"config.json"
 RESULTS=ROOT/"optimizer_results"
-VERSION=2
+VERSION=3
 
 
 def configuration(size,side_deg,latitude_deg=25.3026,longitude_deg=51.5132,
@@ -126,7 +127,9 @@ def archived_seed(config,size):
     path=folder/"case.json"
     if not path.exists():return None
     data=json.loads(path.read_text(encoding="utf-8"))
-    if data.get("N")!=size or data.get("config")!=config or data.get("model_fingerprint_sha256")!=model_fingerprint():
+    # Исторический файл служит лишь начальным состоянием. После смены
+    # критерия/кода оно полностью проверяется действующей моделью заново.
+    if data.get("N")!=size or data.get("config")!=config:
         return None
     states=reconstruct(data["elements_at_epoch"],config["orbit"]["mu_km3_s2"])
     _,_,_,_,target,_=geometry_at_epoch(config,size)
@@ -181,14 +184,24 @@ def _near_miss(metrics,config):
 
 
 def survey(candidate,config,step_s=None):
+    direction_epoch=audit_orbit_normals(candidate["states"][None],np.array([0.]))
+    if not direction_epoch["ok"]:
+        limits,failures=orbit_limits(candidate,config)
+        return {"score":(False,0.,-1e6),"duration_square_s":0.,
+                "duration_resolution_2deg_s":0.,"intervals_square":[],
+                "near_miss":1e6,"orbit_limits":limits,"minimum_pair_sample_km":0.,
+                "orbital_direction_epoch":direction_epoch,"orbital_direction_pass":None,
+                "violations":failures+[direction_epoch["reason"]]}
     step_s=float(step_s or config["search"]["survey_step_s"])
     t=np.arange(config["display"]["start_s"],config["display"]["end_s"]+step_s*.25,step_s)
     states=integrate(candidate["states"],t,config,config["display"]["integration_step_s"])
+    direction_pass=audit_orbit_normals(states,t)
     metrics=checked_geometry(states,t,config,candidate["N"])
     wins=intervals(metrics,0.);wins2=intervals(metrics,2.)
     duration=max((x["duration_s"] for x in wins),default=0.)
     resolution=max((x["duration_s"] for x in wins2),default=0.)
     limits,failures=orbit_limits(candidate,config)
+    if not direction_pass["ok"]:failures.append(direction_pass["reason"])
     heights=np.linalg.norm(states[:,:,0],axis=2)-config["orbit"]["earth_radius_km"]
     if float(np.min(heights))<config["search"]["minimum_altitude_km"]:
         failures.append("высота на пролёте ниже границы")
@@ -205,7 +218,8 @@ def survey(candidate,config,step_s=None):
     score=(not failures,duration,-near)
     return {"score":score,"duration_square_s":duration,"duration_resolution_2deg_s":resolution,
             "intervals_square":wins,"near_miss":near,"orbit_limits":limits,
-            "minimum_pair_sample_km":pair_min,"violations":failures}
+            "minimum_pair_sample_km":pair_min,"orbital_direction_epoch":direction_epoch,
+            "orbital_direction_pass":direction_pass,"violations":failures}
 
 
 def _record(candidate,metrics,iteration,stage):
@@ -216,6 +230,8 @@ def _record(candidate,metrics,iteration,stage):
             "duration_resolution_2deg_s":metrics["duration_resolution_2deg_s"],
             "near_miss":metrics["near_miss"],"orbit_limits":metrics["orbit_limits"],
             "minimum_pair_sample_km":metrics["minimum_pair_sample_km"],
+            "orbital_direction_epoch":metrics.get("orbital_direction_epoch"),
+            "orbital_direction_pass":metrics.get("orbital_direction_pass"),
             "rejection_reasons":metrics["violations"] or (["нулевой связный интервал"] if not metrics["duration_square_s"] else [])}
 
 
@@ -225,6 +241,8 @@ def verify(candidate,config,cancel_event=None):
     if cancel_event is not None and cancel_event.is_set():raise InterruptedError("Аудит отменён")
     t=np.arange(config["display"]["start_s"],config["display"]["end_s"]+1,1.)
     states=integrate(candidate["states"],t,config,1.)
+    direction_epoch=audit_orbit_normals(candidate["states"][None],np.array([0.]))
+    direction_pass=audit_orbit_normals(states,t)
     geom=checked_geometry(states,t,config,size)
     wins=intervals(geom,0.);wins2=intervals(geom,2.)
     display_geom=checked_geometry(states[::5],t[::5],config,size)
@@ -256,6 +274,7 @@ def verify(candidate,config,cancel_event=None):
     period=2*np.pi*np.sqrt(chief_a**3/config["orbit"]["mu_km3_s2"])
     full_t=np.r_[np.arange(0.,period,5.),period]
     full_states=integrate(candidate["states"],full_t,config,config["display"]["integration_step_s"])
+    direction_orbit=audit_orbit_normals(full_states,full_t)
     if cancel_event is not None and cancel_event.is_set():raise InterruptedError("Аудит отменён")
     audit=audit_one_pass(full_states,full_t,config,cancel_event=cancel_event)
     pass_min=np.inf
@@ -265,6 +284,9 @@ def verify(candidate,config,cancel_event=None):
     heights=np.linalg.norm(full_states[:,:,0],axis=2)-config["orbit"]["earth_radius_km"]
     chief_lat=np.rad2deg(np.arcsin(full_states[:,0,0,2]/np.linalg.norm(full_states[:,0,0],axis=1)))
     limits,failures=orbit_limits(candidate,config)
+    for scope,direction in (("эпоха",direction_epoch),("пролёт",direction_pass),
+                            ("полный виток",direction_orbit)):
+        if not direction["ok"]:failures.append(f"{scope}: {direction['reason']}")
     if heights.min()<config["search"]["minimum_altitude_km"] or heights.max()>config["search"]["maximum_altitude_km"]:
         failures.append("высота на полном витке вне области модели")
     if audit["dangerous_events"]:failures.append("опасное сближение на полном витке")
@@ -291,7 +313,11 @@ def verify(candidate,config,cancel_event=None):
                 "altitude_range_km":[float(heights.min()),float(heights.max())],
                 "max_abs_chief_latitude_deg":float(np.max(abs(chief_lat))),
                 "threshold_km":audit["threshold_km"]},
-            "orbit_limits":limits,"physical_violations":failures,
+            "orbit_limits":limits,
+            "orbital_direction":{"epoch":direction_epoch,"one_pass":direction_pass,
+                                 "full_orbit":direction_orbit,
+                                 "fixed_limit_deg":MAX_NORMAL_ANGLE_DEG},
+            "physical_violations":failures,
             "step_1_vs_half_max_position_km":drift,"elements_roundtrip_max_error":roundtrip}
 
 
@@ -324,7 +350,7 @@ def optimize(config,size,budget=16,output_root=RESULTS,resume=True,cancel_event=
             history.append(record)
             with history_file.open("a",encoding="utf-8") as stream:
                 stream.write(json.dumps(record,ensure_ascii=False)+"\n")
-    best=None;best_index=None;count=0
+    best=None;best_index=None;count=0;survey_eligible=[]
     def evaluate(candidate,stage):
         nonlocal best,best_index,count
         if cancel_event is not None and cancel_event.is_set():
@@ -334,7 +360,9 @@ def optimize(config,size,budget=16,output_root=RESULTS,resume=True,cancel_event=
         except (ValueError,FloatingPointError) as exc:
             metrics={"score":(False,0.,-1e6),"duration_square_s":0.,
                 "duration_resolution_2deg_s":0.,"near_miss":1e6,
-                "orbit_limits":{},"minimum_pair_sample_km":0.,"violations":[str(exc)]}
+                "orbit_limits":{},"minimum_pair_sample_km":0.,
+                "orbital_direction_epoch":None,"orbital_direction_pass":None,
+                "violations":[str(exc)]}
         count+=1
         improved=best is None or metrics["score"]>best[1]["score"]
         record=_record(candidate,metrics,len(history)+1,stage)
@@ -346,6 +374,7 @@ def optimize(config,size,budget=16,output_root=RESULTS,resume=True,cancel_event=
         if improved:
             best=(candidate,metrics)
             best_index=len(history)-1
+        if metrics["score"][0]:survey_eligible.append((candidate,metrics,len(history)-1))
         if progress:progress(f"{count}/{budget}: {stage}; квадрат {metrics['duration_square_s']:g} с; лучший {best[1]['duration_square_s']:g} с")
     for seed in seeds:
         if count>=budget:break
@@ -386,6 +415,16 @@ def optimize(config,size,budget=16,output_root=RESULTS,resume=True,cancel_event=
                 (checked["physical_violations"] or archived_check["one_pass"]["best_square_duration_s"]
                   >=checked["one_pass"]["best_square_duration_s"])):
                 selected,checked=archived,archived_check
+    if checked["physical_violations"]:
+        # Пролётный отсев не заменяет проверку направленных нормалей и
+        # остальных ограничений на витке. Пробуем следующие допустимые
+        # по отсеву состояния, прежде чем сообщить об отсутствии решения.
+        for alternative,_,index in sorted(survey_eligible,key=lambda row:row[1]["score"],reverse=True):
+            if alternative is selected:continue
+            alternative_check=verify(alternative,cfg,cancel_event)
+            if not alternative_check["physical_violations"]:
+                selected,checked,best_index=alternative,alternative_check,index
+                break
     payload={"schema_version":VERSION,"signature":key,"model_fingerprint_sha256":model_fingerprint(),
         "config":cfg,"N":size,"budget_this_run":budget,"survey_count_total":len(history),
         "candidate":{"source":selected["parameters"]["source"],
@@ -405,11 +444,21 @@ def optimize(config,size,budget=16,output_root=RESULTS,resume=True,cancel_event=
         selected_index=next((i for i,row in enumerate(history)
                              if row["source"]=="ранее проверенный кандидат"),best_index)
     for i,row in enumerate(history):
-        row["outcome"]="selected" if i==selected_index else "rejected"
+        row["outcome"]=("selected" if i==selected_index and not checked["physical_violations"]
+                        else "rejected")
         if i!=selected_index and not row["rejection_reasons"]:
             row["rejection_reasons"]=["не выбран после точной проверки пролёта и полного витка"]
     history_file.write_text("".join(json.dumps(row,ensure_ascii=False,allow_nan=False)+"\n"
                                     for row in history),encoding="utf-8")
+    if checked["physical_violations"]:
+        rejected={"schema_version":VERSION,"signature":key,"config":cfg,"N":size,
+                  "status":"подходящий пассивный вариант не найден",
+                  "physical_violations":checked["physical_violations"],
+                  "orbital_direction":checked["orbital_direction"],
+                  "survey_count_total":len(history),"attempts_file":history_file.name}
+        (folder/"rejected.json").write_text(json.dumps(rejected,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
+        best_file.unlink(missing_ok=True)
+        raise ValueError("Подходящий пассивный вариант не найден: "+"; ".join(checked["physical_violations"]))
     best_file.write_text(json.dumps(payload,ensure_ascii=False,indent=2,allow_nan=False)+"\n",encoding="utf-8")
     return payload,best_file
 
@@ -419,7 +468,19 @@ def load_cached(config,size,root=RESULTS):
     path=Path(root)/key/"best.json"
     if not path.exists():return None
     data=json.loads(path.read_text(encoding="utf-8"))
-    if data.get("signature")!=key or data.get("config")!=cfg or data.get("model_fingerprint_sha256")!=model_fingerprint():
+    verification=data.get("verification",{})
+    direction=verification.get("orbital_direction",{})
+    def accepted_scope(scope):
+        item=direction.get(scope,{})
+        dot=item.get("min_dot");angle=item.get("max_angle_deg")
+        return (item.get("ok") is True and isinstance(dot,(int,float)) and
+                isinstance(angle,(int,float)) and np.isfinite(dot) and
+                np.isfinite(angle) and dot>0 and angle<=MAX_NORMAL_ANGLE_DEG)
+    direction_ok=(direction.get("fixed_limit_deg")==MAX_NORMAL_ANGLE_DEG and
+                  all(accepted_scope(scope) for scope in ("epoch","one_pass","full_orbit")))
+    if (data.get("schema_version")!=VERSION or data.get("signature")!=key or
+        data.get("config")!=cfg or data.get("model_fingerprint_sha256")!=model_fingerprint() or
+        not direction_ok or verification.get("physical_violations")):
         raise ValueError("Сохранённый подбор несовместим с текущей моделью")
     raw=data["candidate"];states=np.asarray(raw["initial_states_eci_km_km_s"])
     _,_,_,_,target,_=geometry_at_epoch(cfg,size)
@@ -450,6 +511,8 @@ def main():
     print(f"{path}: квадрат {v['one_pass']['best_square_duration_s']:g} с, "
           f"при 2° {v['one_pass']['best_resolution_2deg_s']:g} с; "
           f"полный виток min={v['full_orbit']['closest_pair']['distance_km']:.6f} км; "
+          f"max угол нормалей={v['orbital_direction']['full_orbit']['max_angle_deg']:.6f}° "
+          f"(предел {MAX_NORMAL_ANGLE_DEG:g}°); "
           f"нарушения: {v['physical_violations']}")
 
 

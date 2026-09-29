@@ -465,7 +465,8 @@ class DemoWindow(QMainWindow):
         if not model_valid: problems.append(f"высота {audit['minimum_altitude_km']:.0f}…{audit['maximum_altitude_km']:.0f} км выходит за область плотности {density_range[0]:g}…{density_range[1]:g} км")
         problems.extend(audit["violations"])
         problem_text=(" Нарушения: "+"; ".join(problems)+"." if problems else "")
-        self.status.setText(f"N={size}, внешняя сторона {side:g}°: {state}; {source}. Интервал наблюдаемого квадрата {duration:g} с; минимум всех {audit['pair_count']} пар за полный виток {audit['closest_pair']['distance_km']:.3f} км.{problem_text} Многосуточная повторяемость не проверена.")
+        normal_angle=audit["orbital_direction"]["full_orbit"]["max_angle_deg"]
+        self.status.setText(f"N={size}, внешняя сторона {side:g}°: {state}; {source}. Интервал наблюдаемого квадрата {duration:g} с; минимум всех {audit['pair_count']} пар за полный виток {audit['closest_pair']['distance_km']:.3f} км; максимальный угол нормалей {normal_angle:.3f}° (предел 5°, hᵢ·h₀>0).{problem_text} Многосуточная повторяемость не проверена.")
         self.status.setStyleSheet("background:#fff0d9;color:#805015;padding:5px;" if accepted else "background:#ffe3df;color:#8b241d;padding:5px;")
         observer=scenario["observer"]
         orbit=scenario["orbit"]
@@ -562,7 +563,9 @@ class DemoWindow(QMainWindow):
         self.pass_badge.setStyleSheet("background:#d9f4e3;color:#145b32;padding:5px;" if quality["has_positive_duration_interval"] else "background:#ffe3df;color:#8b241d;padding:5px;")
         orbit_ok=audit["full_orbit_ok"]
         issues="; ".join(audit["full_orbit_violations"])
-        self.orbit_badge.setText("Полный виток: " + ("орбиты и все пары прошли принятые проверки." if orbit_ok else f"проверка не пройдена — {issues}."))
+        normal_angle=audit["orbital_direction"]["full_orbit"]["max_angle_deg"]
+        direction_text=f" Максимальный угол нормалей {normal_angle:.3f}° ≤ 5°, hᵢ·h₀>0."
+        self.orbit_badge.setText("Полный виток: " + ("орбиты и все пары прошли принятые проверки." if orbit_ok else f"проверка не пройдена — {issues}.")+direction_text)
         self.orbit_badge.setStyleSheet("background:#d9f4e3;color:#145b32;padding:5px;" if orbit_ok else "background:#fff0d9;color:#805015;padding:5px;")
         closest=audit["closest_pair"]
         threshold=audit["threshold_km"]
@@ -683,6 +686,17 @@ class DemoWindow(QMainWindow):
         for j,line in self._space_artists["traces"].items():
             start=max(0,k-40)
             line.set_data_3d(*xyz[start:k+1,j].T)
+        velocity=(r.metadata["local_velocity_oso_km_s"] if mode=="local"
+                  else r.metadata["velocity_eci_km_s"])
+        if "velocity_arrows" in self._space_artists:
+            self._space_artists["velocity_arrows"].remove()
+        selected_index=np.asarray(selected,dtype=int)
+        self._space_artists["velocity_arrows"]=ax.quiver(
+            *xyz[k,selected_index].T,*velocity[k,selected_index].T,
+            length=radius*.12 if mode=="local" else (bounds[0][1]-bounds[0][0])*.06,
+            normalize=True,color="#a32929",linewidth=.9,arrow_length_ratio=.28)
+        self._space_artists["arrow_frame_index"]=k
+        self._space_artists["trace_end_time_s"]=float(r.t_s[k])
         rows=np.empty(size*size,dtype=int)
         for row in range(size): rows[ids[row]]=row
         if rebuild:
