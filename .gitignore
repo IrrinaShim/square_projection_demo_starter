@@ -5,3 +5,5 @@ __pycache__/
 *.aux
 *.log
 *.synctex.gz
+
+.local_backups/

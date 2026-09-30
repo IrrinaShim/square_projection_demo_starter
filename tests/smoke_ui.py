@@ -1,128 +1,95 @@
-"""Короткая проверка окна: QT_QPA_PLATFORM=offscreen .venv/bin/python tests/smoke_ui.py"""
-import sys
+"""Native/offscreen window check, with optional SQUARE_SCREENSHOTS directory."""
+import json
+import os
 from pathlib import Path
+import sys
 from tempfile import TemporaryDirectory
+import time
+
 import numpy as np
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication
+
+sys.path.insert(0,str(Path(__file__).resolve().parent.parent))
 from square_demo.ui import DemoWindow
 
-app = QApplication([])
-window = DemoWindow()
-window.show()
-assert window.result.metadata["mode"] == "free_hcw_two_body"
-assert window.result.metadata["variant"] == "fitted"
-assert window.view.currentIndex() == 0
-assert not hasattr(window,"control")
-assert "период" in window.parameters.text()
-assert "подобраны по проекции" in window.parameters.text()
-window.initial_button.click()
-assert window.initial_table.isVisible()
-assert window.initial_table.item(0,1).text() != "—"
-window.initial_button.click()
-zenith = int(abs(window.result.t_s).argmin())
-assert abs(window.result.image_gnomonic[zenith]-window.result.target_image_gnomonic).max() < 1e-12
-window.time_slider.setValue(zenith)
-assert "приемлем" in window.observable_badge.text()
-assert "#d9f4e3" in window.observable_badge.styleSheet()
-assert abs(window.result.metadata["observability"]["size_deviation_percent"][zenith]) < 1e-8
-projected_at_zenith = np.asarray(window.proj.axes.lines[1].get_xydata()).copy()
-yoz_at_zenith = np.asarray(window.yoz.axes.lines[1].get_xydata()).copy()
-window.time_slider.setValue(0)
-assert "неприемлем" in window.observable_badge.text()
-assert "угол места" in window.observable_badge.text()
-assert not np.allclose(window.proj.axes.lines[1].get_xydata(),projected_at_zenith)
-assert not np.allclose(window.yoz.axes.lines[1].get_xydata(),yoz_at_zenith)
-assert window.timeline.eligible[zenith] and not window.timeline.eligible[0]
-assert window.result.metadata["quality"]["zenith_contiguous_duration_s"] > window.variants["trial"].metadata["quality"]["zenith_contiguous_duration_s"]
-window.variant.setCurrentIndex(1)
-assert window.result.metadata["variant"] == "trial"
-assert "не подтверждена как безопасная" in window.safety_badge.text()
-window.variant.setCurrentIndex(2)
-assert window.result.metadata["variant"] == "ideal"
-window.variant.setCurrentIndex(0)
-window.fields["angular_side_deg"].setValue(20)
-window.calculate_current()
-assert window.result.metadata["angular_side_deg"] == 20
-assert "20.000000°" in window.parameters.text()
-window.time_slider.setValue(15)
-assert window.time_slider.value() == 15
-window.toggle_play()
-QTimer.singleShot(600,app.quit)
-app.exec()
-assert window.timer.isActive() and window.time_slider.value() > 15
-window.toggle_play()
-window.mode.setCurrentIndex(1)
-assert window.result.metadata["mode"] == "legacy_replay"
-assert not window.fields["angular_side_deg"].isEnabled()
-assert "исторические состояния CSV" in window.parameters.text()
-window.initial_button.click()
-assert window.initial_table.item(0,1).text() == "—"
-window.initial_button.click()
-window.view.setCurrentIndex(1)
-window.time_slider.setValue(120)
-window.toggle_play()
-QTimer.singleShot(600,app.quit)
-app.exec()
-assert window.time_slider.value() > 120
-window.toggle_play()
-app.processEvents()
-assert "Наблюдаемый квадрат" in window.observable_badge.text()
-window.show()
-window.mode.setCurrentIndex(2)
-assert window.result.metadata["mode"] == "independent_j2"
-assert "J₂" in window.parameters.text()
-assert "полном витке" in window.safety_badge.text()
-window.elements_button.click()
-assert window.elements_table.isVisible(), (window.elements_button.isChecked(),
-                                          window.elements_button.isVisible(),
-                                          window.elements_table.isHidden())
-assert window.elements_table.item(3,1).text() != ""
-window.elements_button.click()
-zenith = int(abs(window.result.t_s).argmin())
-window.time_slider.setValue(zenith)
-assert "приемлем" in window.observable_badge.text()
-projected = np.asarray(window.proj.axes.lines[1].get_xydata()).copy()
-window.time_slider.setValue(0)
-assert not np.allclose(window.proj.axes.lines[1].get_xydata(),projected)
-window.view.setCurrentIndex(0)
-window.toggle_play()
-QTimer.singleShot(330,app.quit)
-app.exec()
-assert window.time_slider.value() > 0
-window.toggle_play()
-window.close()
-window = DemoWindow()
-window.show()
-window.mode.setCurrentIndex(2)
-window.grid_size.setValue(3)
-window.calculate_current()
-assert window.result.r_eci_km.shape == (181,9,3)
-assert "выполняется" in window.safety_badge.text()
-assert len(window.proj.axes.collections) >= 1
-with TemporaryDirectory() as temporary:
-    path = Path(temporary)/"elements.json"
-    window.export_orbit_elements(path)
-    import json
-    data = json.loads(path.read_text(encoding="utf-8"))
-    assert len(data["elements_at_epoch"]) == 9
-window.grid_size.setValue(10)
-window.calculate_current()
-assert window.result.r_eci_km.shape == (181,100,3)
-assert "выполняется" in window.safety_badge.text()
-assert window.elements_table.rowCount() == 100
-window.time_slider.setValue(90)
-assert "Вся сетка" in window.metrics.text()
-poll = QTimer()
-poll.timeout.connect(lambda: app.quit() if window.result.metadata["audit_status"] == "complete" else None)
-poll.start(100)
-QTimer.singleShot(12000,app.quit)
-app.exec()
-poll.stop()
-assert window.result.metadata["audit_status"] == "complete"
-assert window.result.metadata["full_orbit_audit"]["pair_count"] == 4950
-print("OK: HCW, J₂ и CSV; обе 2D-картины, 3D, элементы, индикаторы, ползунок, анимация")
-window.close()
+app=QApplication([]);w=DemoWindow();w.show()
+
+def ready(n,mode='independent_j2',audit=True):
+    deadline=time.monotonic()+60
+    while time.monotonic()<deadline:
+        app.processEvents()
+        if (w.result is not None and w.result.metadata['mode']==mode
+            and w.result.r_eci_km.shape[1]==n*n
+            and (not audit or mode!='independent_j2' or w.result.metadata['audit_status']=='complete')):return
+        time.sleep(.02)
+    raise AssertionError(w.status.text()+'; '+w.safety_badge.text())
+
+def screenshot(name):
+    if os.environ.get('SQUARE_SCREENSHOTS'):
+        folder=Path(os.environ['SQUARE_SCREENSHOTS']);folder.mkdir(parents=True,exist_ok=True)
+        app.processEvents();w.grab().save(str(folder/name))
+
+ready(2)
+assert [w.mode.itemText(k) for k in range(2)]==['Без управления','С управлением']
+assert w.calculate_button.text()=='Рассчитать'
+assert not any(hasattr(w,key) for key in ('variant','comparison','search_budget','search_button'))
+for key in ('angular_side_deg','altitude_km','inclination_deg'):assert not w.fields[key].isEnabled()
+assert 'без атмосферного сопротивления' in w.model_summary.text()
+base=w.result.r_eci_km.copy()
+for n in (2,3,10):
+    if n!=2:
+        w.grid_size.setValue(n);assert w.result is None
+        w.calculate_button.click();ready(n)
+    np.testing.assert_array_equal(w.result.r_eci_km[:,w.display.corners],base)
+    assert w.result.metadata['quality']['longest_contiguous_duration_s']=={2:425.,3:185.,10:55.}[n]
+    assert w.display.outer_quality['longest_contiguous_duration_s']==425.
+    assert '425 с' in w.pass_badge.text()
+    assert len(w.result.metadata['full_orbit_audit']['pair_minima'])==n*n*(n*n-1)//2
+    for mode in range(4):
+        w.view.setCurrentIndex(mode)
+        for frame in (60,90,120):
+            w.time_slider.setValue(frame);app.processEvents()
+            local=w.view.currentData()=='local'
+            xyz=w.display.local_km if local else w.result.r_eci_km
+            velocities=w.display.local_velocity_km_s if local else w.display.eci_velocity_km_s
+            chosen=w._space_artists['arrow_spacecraft_indices']
+            np.testing.assert_allclose(w._space_artists['arrow_vectors_km_s'],velocities[frame,chosen])
+            np.testing.assert_allclose(np.array(w._space_artists['scatter']._offsets3d).T,xyz[frame])
+            np.testing.assert_allclose(w._grid_artists[w.proj][2].get_offsets(),np.rad2deg(np.arctan(w.result.image_gnomonic[frame])))
+            np.testing.assert_allclose(w._grid_artists[w.yoz][2].get_offsets(),w.display.local_km[frame,:,1:])
+            bounds=np.array([w.space.axes.get_xlim(),w.space.axes.get_ylim(),w.space.axes.get_zlim()])
+            assert np.allclose(np.diff(bounds,axis=1),np.diff(bounds,axis=1)[0])
+            for trace in w._space_artists['traces'].values():
+                points=np.array(trace.get_data_3d()).T
+                assert np.all(points>=bounds[:,0]) and np.all(points<=bounds[:,1])
+        w.time_slider.setValue(90);app.processEvents()
+        if mode in (0,1,2):screenshot(f'n{n}-view{mode}.png')
+    w.view.setCurrentIndex(0)
+    for canvas in (w.proj,w.yoz):
+        canvas.draw();rgb=np.asarray(canvas.buffer_rgba())[:,:,:3].astype(int)
+        assert np.count_nonzero(rgb.max(axis=2)-rgb.min(axis=2)>50)>40
+    w.elements_button.setChecked(True);assert w.elements_table.isVisible()
+    assert w.elements_table.rowCount()==n*n;w.elements_button.setChecked(False)
+with TemporaryDirectory() as folder:
+    path=Path(folder)/'elements.json';w.export_orbit_elements(path)
+    assert len(json.loads(path.read_text())['elements_at_epoch'])==100
+# Unsupported controlled grids must never reuse the last passive trajectory.
+w.mode.setCurrentIndex(1);w.calculate_button.click()
+assert w.result is None and 'не рассчитан' in w.status.text()
+w.grid_size.setValue(2);w.calculate_button.click();ready(2,'legacy_replay')
+assert w.result.t_s.shape==(241,)
+assert w.result.accel_oso_m_s2.shape==(240,4,3)
+assert not w.elements_button.isEnabled()
+assert 'реконструкция' in w.model_summary.text()
+w.time_slider.setValue(120);screenshot('controlled-n2.png')
+# Return to J2, then prove changed observer clears old geometry until calculate.
+w.mode.setCurrentIndex(0);w.calculate_button.click();ready(2)
+w.fields['longitude_deg'].setValue(51.6);assert w.result is None
+w.calculate_button.click();ready(2)
+assert w.result.metadata['observer_longitude_deg']==51.6
+w.time_slider.setValue(90);w.toggle_play()
+start=time.monotonic()
+while time.monotonic()-start<.5:app.processEvents();time.sleep(.01)
+assert w.time_slider.value()>90;w.toggle_play()
+w.close()
+print('OK: native/offscreen J2 N=2/3/10, identical corners, CSV N=2, unsupported N>2, three panels, camera bounds, arrows, elements, animation')
