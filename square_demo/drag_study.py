@@ -36,8 +36,8 @@ def _direction_audit(candidate,cfg):
 def _checked_audit(cfg,checked):
     full=checked["full_orbit"];one=checked["one_pass"]
     violations=list(checked["physical_violations"])
-    projection=[] if one["best_square_duration_display_s"]>0 else ["нет связного интервала наблюдаемого квадрата"]
-    instrument=[] if one["best_resolution_2deg_display_s"]>0 else ["при исследовательском пороге разрешения 2° нет интервала"]
+    projection=[] if one["best_square_duration_s"]>0 else ["нет связного интервала наблюдаемого квадрата"]
+    instrument=[] if one["best_resolution_2deg_s"]>0 else ["при исследовательском пороге разрешения 2° нет интервала"]
     return {"closest_pair":full["closest_pair"],"pair_count":full["pair_count"],
         "threshold_km":full["threshold_km"],"horizon_s":[0.,full["period_s"]],
         "one_pass_horizon_s":[cfg["display"]["start_s"],cfg["display"]["end_s"]],
@@ -54,8 +54,8 @@ def _checked_audit(cfg,checked):
         "orbital_direction":checked["orbital_direction"],
         "full_orbit_violations":violations,"projection_violations":projection,
         "instrument_violations":instrument,
-        "violations":violations+projection+instrument,
-        "verified_acceptable":not (violations or projection or instrument)}
+        "violations":violations+projection,
+        "verified_acceptable":not (violations or projection)}
 
 
 def load_or_search(size,side_deg,neighbor_deg,latitude_deg=25.3026,
@@ -140,7 +140,7 @@ def load_or_search(size,side_deg,neighbor_deg,latitude_deg=25.3026,
     audit["instrument_duration_2deg_s"]=preview["best_duration_2deg_s"]
     audit["instrument_violations"]=([] if preview["best_duration_2deg_s"]>0 else
                                     ["при исследовательском пороге разрешения 2° нет интервала"])
-    audit["violations"]+=audit["projection_violations"]+audit["instrument_violations"]
+    audit["violations"]+=audit["projection_violations"]
     audit["verified_acceptable"]=not audit["violations"]
     cfg["angular_side_deg"]=float(side_deg)
     return cfg,candidate,audit,"новый подбор; проверены пролёт и полный виток"

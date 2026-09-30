@@ -28,7 +28,7 @@ class Plot(FigureCanvasQTAgg):
         self.figure=Figure(figsize=(5,4),constrained_layout=projection!="3d")
         self.axes=self.figure.add_subplot(111,projection=projection)
         if projection=="3d":
-            self.figure.subplots_adjust(left=.02,right=.98,bottom=.03,top=.92)
+            self.figure.subplots_adjust(left=.04,right=.94,bottom=.12,top=.86)
         super().__init__(self.figure)
         self.setMinimumWidth(300)
         self._animated_artists=[]
@@ -37,8 +37,10 @@ class Plot(FigureCanvasQTAgg):
 
     def _save_background(self,event):
         self._background=self.copy_from_bbox(self.axes.bbox)
-        if self._animated_artists:
-            QTimer.singleShot(0,self.fast_draw)
+        # Draw into this render before Qt paints/grabs it. Deferring to a
+        # timer left animated points absent after resize/expose or screenshots.
+        for artist in self._animated_artists:
+            self.axes.draw_artist(artist)
 
     def fast_draw(self):
         if self._background is None: return
@@ -136,7 +138,7 @@ class DemoWindow(QMainWindow):
         cf.addRow("КА на стороне N",self.grid_size)
         self.angular_side=QDoubleSpinBox()
         self.angular_side.setRange(1,30)
-        self.angular_side.setDecimals(3)
+        self.angular_side.setDecimals(9)
         self.angular_side.setValue(20)
         self.angular_side.setSuffix(" °")
         cf.addRow("Внешняя сторона (цель)",self.angular_side)
@@ -458,20 +460,21 @@ class DemoWindow(QMainWindow):
         model_valid=(audit["minimum_altitude_km"]>=density_range[0] and
                      audit["maximum_altitude_km"]<=density_range[1])
         full_orbit_ok=bool(audit["full_orbit_ok"] and safe and model_valid)
-        resolved_duration=audit["instrument_duration_2deg_s"]
-        accepted=duration>0 and full_orbit_ok and resolved_duration>0
-        state=("интервал квадрата, отдельный сценарий разрешения 2° и проверка витка пройдены" if accepted else
+        checked_duration=audit.get("verified_duration_1s_s",duration)
+        resolved_duration=audit.get("verified_resolution_2deg_1s_s",audit["instrument_duration_2deg_s"])
+        accepted=checked_duration>0 and full_orbit_ok
+        state=("наблюдаемый квадрат и физическая проверка витка пройдены" if accepted else
                "часть условий демонстрационного случая не выполнена")
         problems=[]
-        if duration<=0: problems.append("не выполнены видимость, форма или внешний размер всей сетки")
+        if checked_duration<=0: problems.append("не выполнены видимость, форма или внешний размер всей сетки")
         if not safe: problems.append("порог сближения нарушен")
         if not model_valid: problems.append(f"высота {audit['minimum_altitude_km']:.0f}…{audit['maximum_altitude_km']:.0f} км выходит за область плотности {density_range[0]:g}…{density_range[1]:g} км")
         problems.extend(audit["violations"])
         problem_text=(" Нарушения: "+"; ".join(problems)+"." if problems else "")
+        problem_text+=f" Отдельный сценарий разрешения ≥2°: {resolved_duration:g} с."
         normal_angle=audit["orbital_direction"]["full_orbit"]["max_angle_deg"]
-        checked_duration=audit.get("verified_duration_1s_s",duration)
         self.status.setText(f"N={size}, внешняя сторона {side:g}°: {state}; {source}. Проверка проекции через 1 с: {checked_duration:g} с; показанные кадры через {scenario['display']['step_s']:g} с: {duration:g} с. Минимум всех {audit['pair_count']} пар за полный виток {audit['closest_pair']['distance_km']:.3f} км; максимальный угол нормалей {normal_angle:.3f}° (предел 5°, hᵢ·h₀>0).{problem_text} Многосуточная повторяемость не проверена.")
-        self.status.setStyleSheet("background:#fff0d9;color:#805015;padding:5px;" if accepted else "background:#ffe3df;color:#8b241d;padding:5px;")
+        self.status.setStyleSheet("background:#e3f2e5;color:#245a30;padding:5px;" if accepted else "background:#ffe3df;color:#8b241d;padding:5px;")
         observer=scenario["observer"]
         orbit=scenario["orbit"]
         self.orbit_parameters.setText(f"{result.metadata['reference_period_s']:.1f} с")
@@ -568,7 +571,8 @@ class DemoWindow(QMainWindow):
             best=max(verified,key=lambda item:item["duration_s"])
             precise=f" Проверка с шагом 1 с: {best['start_s']:g}…{best['end_s']:g} с ({best['duration_s']:g} с)."
         else:precise=""
-        self.pass_badge.setText(f"Интервал на кадрах с шагом {self.scenario['display']['step_s']:g} с: {interval}.{precise} Отдельный сценарий разрешения 2°: {audit['instrument_duration_2deg_s']:g} с.")
+        instrument=audit.get("verified_resolution_2deg_1s_s",audit['instrument_duration_2deg_s'])
+        self.pass_badge.setText(f"Интервал на кадрах с шагом {self.scenario['display']['step_s']:g} с: {interval}.{precise} Отдельный сценарий разрешения 2°: {instrument:g} с (узлы 1 с); {audit['instrument_duration_2deg_s']:g} с на кадрах.")
         self.pass_badge.setStyleSheet("background:#d9f4e3;color:#145b32;padding:5px;" if quality["has_positive_duration_interval"] else "background:#ffe3df;color:#8b241d;padding:5px;")
         orbit_ok=audit["full_orbit_ok"]
         issues="; ".join(audit["full_orbit_violations"])
@@ -664,13 +668,21 @@ class DemoWindow(QMainWindow):
             radius=max(1.,float(np.max(high-low))*.575)
             bounds=[(c-radius,c+radius) for c in center]
             labels=("x, км","y, км","z, км")
-            if rebuild: ax.set_title("Центр группы: следы относительные, стрелки — инерциальное движение")
+            if rebuild: ax.set_title("Центр группы\nСтрелки: относительная скорость",fontsize=10)
         else:
             xyz=r.r_eci_km
             labels=("X ECI, км","Y ECI, км","Z ECI, км")
             if mode in ("eci_close","eci_fixed"):
                 center=xyz[k,0] if mode=="eci_close" else xyz[int(np.argmin(abs(r.t_s))),0]
-                radius=max(20.,float(np.max(np.linalg.norm(xyz-xyz[:,0:1],axis=2)))*.75)
+                # Fixed span for the entire pass: contain the displayed 200 s
+                # history AND every current spacecraft about the chosen chief.
+                if rebuild:
+                    extent=0.
+                    for frame in range(len(xyz)):
+                        origin=xyz[frame,0] if mode=="eci_close" else center
+                        extent=max(extent,float(np.max(abs(xyz[max(0,frame-40):frame+1]-origin))))
+                    self._space_artists["camera_radius_km"]=max(20.,extent*1.12)
+                radius=self._space_artists["camera_radius_km"]
                 bounds=[(c-radius,c+radius) for c in center]
                 if rebuild: ax.set_title("ECI: камера следует за КА 0" if mode=="eci_close" else
                                          "ECI: камера неподвижна у КА 0 в эпоху")
@@ -682,7 +694,8 @@ class DemoWindow(QMainWindow):
                 if rebuild:
                     ax.plot_surface(*earth,color="#9fc4e9",alpha=.38,linewidth=0)
                     ax.plot(*r.reference_orbit_eci_km.T,color="#888",linewidth=.9)
-                limit=re+r.metadata["reference_altitude_km"]+150
+                limit=max(re,float(np.max(abs(xyz))),
+                          float(np.max(abs(r.reference_orbit_eci_km))))*1.08
                 bounds=[(-limit,limit)]*3
                 if rebuild: ax.set_title("ECI: общий вид с Землёй")
         ids=np.asarray(r.metadata["grid_indices"])
@@ -695,12 +708,8 @@ class DemoWindow(QMainWindow):
         for j,line in self._space_artists["traces"].items():
             start=max(0,k-40)
             line.set_data_3d(*xyz[start:k+1,j].T)
-        # The local trace is relative to the rotating centroid frame. Showing
-        # its derivative as an orbital-direction arrow made co-directed craft
-        # appear to fly in opposite directions. Arrows consistently represent
-        # absolute ECI velocity, expressed in the axes of the selected view.
-        velocity=(np.einsum("tji,tsj->tsi",r.metadata["local_basis_eci"],
-                            r.metadata["velocity_eci_km_s"]) if mode=="local"
+        # Each arrow is tangent to its trace in that trace's coordinate frame.
+        velocity=(r.metadata["local_velocity_oso_km_s"] if mode=="local"
                   else r.metadata["velocity_eci_km_s"])
         if "velocity_arrows" in self._space_artists:
             self._space_artists["velocity_arrows"].remove()

@@ -1,5 +1,6 @@
 """QT_QPA_PLATFORM=offscreen .venv/bin/python tests/smoke_ui.py"""
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -11,6 +12,7 @@ from PySide6.QtWidgets import QApplication, QFileDialog
 
 sys.path.insert(0,str(Path(__file__).resolve().parent.parent))
 from square_demo.ui import DemoWindow
+from orbit_study.passive_optimizer import VERSION
 
 app=QApplication([])
 w=DemoWindow();w.show()
@@ -24,11 +26,12 @@ def ready(n,side,timeout=30):
     raise AssertionError((n,side,w.status.text()))
 
 ready(10,20)
-assert w.windowTitle().endswith('подбор v5')
+assert w.windowTitle().endswith(f'подбор v{VERSION}')
 assert w.calculate_button.text()=='Рассчитать'
 assert not hasattr(w,'search_budget') and not hasattr(w,'search_button')
-assert 'ffcf6dd1184f55b05c72' in w.status.text()
-assert 'Проверка проекции через 1 с: 12 с' in w.status.text()
+assert f'подбор v{VERSION}' in w.status.text()
+assert w.study_record['verified_duration_1s_s'] >= 12.
+assert f"Проверка проекции через 1 с: {w.study_record['verified_duration_1s_s']:g} с" in w.status.text()
 assert [w.mode.itemText(i) for i in range(w.mode.count())]==['Без управления','С управлением']
 assert w.result.r_eci_km.shape==(181,100,3)
 assert w.study_record['pair_count']==4950
@@ -39,10 +42,12 @@ for scope in ('epoch','one_pass','full_orbit'):
     assert w.study_record['orbital_direction'][scope]['min_dot']>0
     assert w.study_record['orbital_direction'][scope]['max_angle_deg']<=5.
 assert 'максимальный угол нормалей' in w.status.text().lower()
-assert 'часть условий' in w.status.text()
+assert 'наблюдаемый квадрат и физическая проверка витка пройдены' in w.status.text()
+assert w.study_record['verified_acceptable']
+assert not w.study_record['violations']
 assert 'ожидаемый' not in w.metrics.text().lower()
 assert 'порог модели' not in w.metrics.text().lower()
-assert '10 с' in w.pass_badge.text() and '12 с' in w.pass_badge.text() and '2°: 0 с' in w.pass_badge.text()
+assert f"2°: {w.study_record['verified_resolution_2deg_1s_s']:g} с" in w.pass_badge.text()
 assert 'атмосферное сопротивление' in w.model_summary.text()
 assert 'Минимум между КА сейчас' in w.safety_badge.text()
 assert 'Внешняя сторона: 20.000°' in w.metrics.text()
@@ -50,9 +55,37 @@ assert abs(w.result.rho_oso_km.mean(axis=1)).max()<1e-9
 frame=w.time_slider.value()
 chosen=w._space_artists['arrow_spacecraft_indices']
 local_vectors=w._space_artists['arrow_vectors_km_s']
-expected=w.result.metadata['velocity_eci_km_s'][frame,chosen] @ w.result.metadata['local_basis_eci'][frame]
+expected=w.result.metadata['local_velocity_oso_km_s'][frame,chosen]
 np.testing.assert_allclose(local_vectors,expected,atol=1e-12)
-assert np.all(local_vectors @ local_vectors[0]>0)
+# A complete draw/expose must retain the colored animated grid immediately,
+# without waiting for another animation tick.
+for canvas in (w.proj,w.yoz):
+    canvas.draw()
+    rgb=np.asarray(canvas.buffer_rgba())[:,:,:3].astype(int)
+    assert np.count_nonzero(rgb.max(axis=2)-rgb.min(axis=2)>50)>500
+# Check three panels and arrow meanings against numbers at identical times.
+for view in (0,1,2,3):
+    w.view.setCurrentIndex(view)
+    for frame in (60,90,120):
+        w.time_slider.setValue(frame);app.processEvents()
+        local=w.view.currentData()=='local'
+        xyz=w.result.rho_oso_km if local else w.result.r_eci_km
+        velocity=w.result.metadata['local_velocity_oso_km_s' if local else 'velocity_eci_km_s']
+        chosen=w._space_artists['arrow_spacecraft_indices']
+        np.testing.assert_allclose(w._space_artists['arrow_vectors_km_s'],velocity[frame,chosen])
+        np.testing.assert_allclose(np.array(w._space_artists['scatter']._offsets3d).T,xyz[frame])
+        np.testing.assert_allclose(w._grid_artists[w.proj][2].get_offsets(),np.rad2deg(np.arctan(w.result.image_gnomonic[frame])))
+        np.testing.assert_allclose(w._grid_artists[w.yoz][2].get_offsets(),w.result.rho_oso_km[frame,:,1:])
+        bounds=np.array([w.space.axes.get_xlim(),w.space.axes.get_ylim(),w.space.axes.get_zlim()])
+        for trace in w._space_artists['traces'].values():
+            data=np.array(trace.get_data_3d()).T
+            assert np.all(data>=bounds[:,0]) and np.all(data<=bounds[:,1])
+        assert np.allclose(np.diff(bounds,axis=1),np.diff(bounds,axis=1)[0])
+    if os.environ.get('SQUARE_SCREENSHOTS'):
+        w.time_slider.setValue(90);app.processEvents()
+        folder=Path(os.environ['SQUARE_SCREENSHOTS']);folder.mkdir(exist_ok=True,parents=True)
+        w.grab().save(str(folder/f'window-view-{view}.png'))
+w.view.setCurrentIndex(0);w.time_slider.setValue(90)
 with TemporaryDirectory() as tmp:
     with patch.object(QFileDialog,'getExistingDirectory',return_value=tmp): w.long_button.click()
     folders=list(Path(tmp).glob('N10_*'))
@@ -116,7 +149,16 @@ for n in (2,3):
         w.time_slider.setValue(96)
         assert 'наблюдаемый квадрат сейчас: нет' in w.observable_badge.text().lower()
         assert '-55…25 с (80 с)' in w.pass_badge.text()
-w.grid_size.setValue(10);w.calculate_button.click();ready(10,20)
+w.grid_size.setValue(2);w.angular_side.setValue(1.818302964);w.orbit_height.setValue(630)
+w.calculate_button.click();ready(2,1.818302964)
+assert w.study_record['verified_duration_1s_s']>=88.
+assert w.study_record['verified_acceptable']
+assert w.study_record['instrument_duration_2deg_s']==0.
+assert w.study_record['instrument_violations']
+assert not w.study_record['violations']
+assert 'наблюдаемый квадрат и физическая проверка витка пройдены' in w.status.text()
+w.grid_size.setValue(10);w.angular_side.setValue(20);w.orbit_height.setValue(700)
+w.calculate_button.click();ready(10,20)
 w.time_slider.setValue(90);w.toggle_play()
 start=time.perf_counter()
 while time.perf_counter()-start<.5: app.processEvents();time.sleep(.01)

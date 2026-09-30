@@ -1,0 +1,16 @@
+{
+  "repository": "/home/irshim/Рабочий стол/square_projection_demo_starter",
+  "branch": "feature/grid-n2-n10",
+  "commit": "ba62a774dc2506b080e655be9d898ae34b528dd9",
+  "python": "/home/irshim/Рабочий стол/square_projection_demo_starter/.venv/bin/python",
+  "main": "/home/irshim/Рабочий стол/square_projection_demo_starter/main.py",
+  "interface": "/home/irshim/Рабочий стол/square_projection_demo_starter/square_demo/ui.py",
+  "optimizer": "/home/irshim/Рабочий стол/square_projection_demo_starter/orbit_study/passive_optimizer.py",
+  "optimizer_schema": 6,
+  "platform": "Linux-6.8.0-53-generic-x86_64-with-glibc2.39",
+  "python_version": "3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]",
+  "numpy": "2.5.3",
+  "matplotlib": "3.11.2",
+  "PySide6": "6.11.2",
+  "note": "Identity at validation before committing; initial HEAD ba62a774. Working source has optimizer v6."
+}

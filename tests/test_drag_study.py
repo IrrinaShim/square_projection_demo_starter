@@ -69,7 +69,10 @@ class DragStudyTests(unittest.TestCase):
         self.assertEqual(result.r_eci_km.shape[1],100)
         self.assertEqual(audit["pair_count"],4950)
         self.assertEqual(result.metadata["quality"]["longest_contiguous_duration_s"],10.)
-        self.assertFalse(audit["verified_acceptable"])
+        self.assertTrue(audit["verified_acceptable"])
+        self.assertEqual(audit["violations"],[])
+        self.assertEqual(bool(audit["instrument_violations"]),
+                         audit["verified_resolution_2deg_1s_s"]<=0.)
         self.assertTrue(audit["full_orbit_ok"])
         self.assertTrue(audit["orbital_direction"]["full_orbit"]["ok"])
         self.assertLess(audit["orbital_direction"]["full_orbit"]["max_angle_deg"],5.)

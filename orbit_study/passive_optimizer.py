@@ -30,7 +30,7 @@ from square_demo.providers import _fit_initial_states
 ROOT=Path(__file__).resolve().parent
 BASE=ROOT/"drag_demo"/"config.json"
 RESULTS=ROOT/"optimizer_results"
-VERSION=5
+VERSION=6
 
 
 def configuration(size,side_deg,latitude_deg=25.3026,longitude_deg=51.5132,
@@ -170,8 +170,11 @@ def inverse_refine(seed,config,base,half_window_s=150.,regularization=.03):
     if not np.all(valid):return seed
     perturb=np.array([1.,.001,.001,.001])
     variants=np.repeat(states[None],4,axis=0)
-    variants[0,:,0]+=rays
-    for k in range(3):variants[k+1,:,1]+=perturb[k+1]*b[:,k]
+    # project() derives the sight line from spacecraft 0 even with a fixed
+    # orbital basis. Only deputies are unknowns: moving the chief here
+    # differentiates a different image than the one updated below.
+    variants[0,1:,0]+=rays[1:]
+    for k in range(3):variants[k+1,1:,1]+=perturb[k+1]*b[:,k]
     propagated=integrate(variants.reshape(-1,2,3),times,config,integration_step)
     propagated=propagated.reshape(len(times),4,len(states),2,3)
     altered=np.empty((len(times),4,len(states),2))
@@ -196,7 +199,9 @@ def inverse_refine(seed,config,base,half_window_s=150.,regularization=.03):
     proposal[0]=chief
     candidate=_candidate(proposal,target,size,config,
         seed["parameters"]["source"]+" + нелинейная обратная итерация")
-    return neighboring_candidate(candidate,base,config)
+    # Preserve the feasible seed while shortening the Newton step. Blending
+    # towards a different circular group can discard earlier improvements.
+    return neighboring_candidate(candidate,seed,config)
 
 
 def archived_seed(config,size):
@@ -213,6 +218,23 @@ def archived_seed(config,size):
     candidate=_candidate(states,target,size,config,"ранее проверенный кандидат")
     candidate["archive_audit"]=data
     return candidate
+
+
+def previous_version_seed(config,size,root=RESULTS):
+    """Reuse exact-input previous search states only as a newly audited seed."""
+    matches=[]
+    for path in sorted(Path(root).glob("*/best.json")):
+        data=json.loads(path.read_text(encoding="utf-8"))
+        if (data.get("schema_version")==VERSION-1 and data.get("N")==size
+                and data.get("config")==config
+                and data.get("model_fingerprint_sha256")==model_fingerprint()
+                and not data.get("verification",{}).get("physical_violations",["missing"])):
+            matches.append(data)
+    if not matches:return None
+    old=max(matches,key=lambda d:d["verification"]["one_pass"]["best_square_duration_s"])
+    states=reconstruct(old["candidate"]["elements_at_epoch"],config["orbit"]["mu_km3_s2"])
+    return _candidate(states,geometry_at_epoch(config,size)[4],size,config,
+                      f"начальное приближение v{VERSION-1}; требуется новый аудит")
 
 
 def _coefficients(size):
@@ -422,6 +444,9 @@ def optimize(config,size,budget=16,output_root=RESULTS,resume=True,cancel_event=
             _,_,_,_,target,_=geometry_at_epoch(cfg,size)
             seeds.append(neighboring_candidate(_candidate(states,target,size,cfg,
                 "продолжение сохранённого поиска"),neighbor,cfg))
+    previous=previous_version_seed(cfg,size,output_root)
+    if previous is not None:
+        seeds.append(neighboring_candidate(previous,neighbor,cfg))
     archived=archived_seed(cfg,size)
     if archived is not None:
         archival_audit=archived["archive_audit"]
@@ -448,7 +473,9 @@ def optimize(config,size,budget=16,output_root=RESULTS,resume=True,cancel_event=
         if cancel_event is not None and cancel_event.is_set():
             raise InterruptedError("Поиск отменён; история уже рассчитанных попыток сохранена")
         try:
-            metrics=survey(candidate,cfg)
+            # A 5 s tie hid improvements such as 10 -> 12 s and could replace
+            # a better saved orbit. Rank on the same 1 s nodes as final verify.
+            metrics=survey(candidate,cfg,step_s=1.)
         except (ValueError,FloatingPointError) as exc:
             metrics={"score":(False,0.,-1e6),"duration_square_s":0.,
                 "duration_resolution_2deg_s":0.,"near_miss":1e6,
@@ -472,14 +499,20 @@ def optimize(config,size,budget=16,output_root=RESULTS,resume=True,cancel_event=
         if count>=budget:break
         evaluate(seed,"точные лучи / соседние орбиты / ХКУ seed")
     if count<budget:
-        origin=best[0]
-        refined=inverse_refine(origin,cfg,neighbor)
-        for gain in (.05,.15,.4,1.):
+        # Fit both the observed interval and a wider historical window.
+        # An infeasible 150 s target alone provides little gradient for a
+        # 12 s accepted interval of a dense grid.
+        windows=(max(20.,best[1]["duration_square_s"]*.65),150.)
+        for window in windows:
             if count>=budget:break
-            proposal=_candidate(origin["states"]+gain*(refined["states"]-origin["states"]),
-                origin["target"],size,cfg,
-                f"нелинейная обратная итерация J2+drag; шаг {gain:g}")
-            evaluate(neighboring_candidate(proposal,neighbor,cfg),"обратная итерация с длиной шага")
+            origin=best[0]
+            refined=inverse_refine(origin,cfg,neighbor,half_window_s=window)
+            for gain in (.05,.15,.4,1.):
+                if count>=budget:break
+                proposal=_candidate(origin["states"]+gain*(refined["states"]-origin["states"]),
+                    origin["target"],size,cfg,
+                    f"нелинейная обратная итерация J2+drag; окно {window:g} с; шаг {gain:g}")
+                evaluate(neighboring_candidate(proposal,origin,cfg),"обратная итерация с длиной шага")
     if best is None:raise ValueError("Не удалось построить ни одного кандидата")
     rng=np.random.default_rng(20260929+len(history))
     coeff=np.zeros((4,4));step=np.array([20.,.02,.02,.02])
@@ -506,16 +539,11 @@ def optimize(config,size,budget=16,output_root=RESULTS,resume=True,cancel_event=
         elif count%16==0:step*=.6
     selected=best[0]
     checked=verify(selected,cfg,cancel_event)
-    # Непроверенный по витку выигрыш не вытесняет проверенную базу.
-    if archived is not None:
-        saved_duration=max((row["duration_s"] for row in archived["archive_audit"]["one_pass"][
-            "accepted_intervals_square"]),default=0.)
-        if checked["physical_violations"] or checked["one_pass"]["best_square_duration_s"]<=saved_duration:
-            archived_check=verify(archived,cfg,cancel_event)
-            if (not archived_check["physical_violations"] and
-                (checked["physical_violations"] or archived_check["one_pass"]["best_square_duration_s"]
-                  >=checked["one_pass"]["best_square_duration_s"])):
-                selected,checked=archived,archived_check
+    if checked["physical_violations"]:
+        history[best_index]["rejection_reasons"].extend(checked["physical_violations"])
+    # All seeds, including the archive and previous version, compete on the
+    # same nodes. A failed leader must not short-circuit to a worse archive
+    # before the other (possibly better) feasible candidates are audited.
     if checked["physical_violations"]:
         # Пролётный отсев не заменяет проверку направленных нормалей и
         # остальных ограничений на витке. Пробуем следующие допустимые
@@ -523,6 +551,8 @@ def optimize(config,size,budget=16,output_root=RESULTS,resume=True,cancel_event=
         for alternative,_,index in sorted(survey_eligible,key=lambda row:row[1]["score"],reverse=True):
             if alternative is selected:continue
             alternative_check=verify(alternative,cfg,cancel_event)
+            if alternative_check["physical_violations"]:
+                history[index]["rejection_reasons"].extend(alternative_check["physical_violations"])
             if not alternative_check["physical_violations"]:
                 selected,checked,best_index=alternative,alternative_check,index
                 break
